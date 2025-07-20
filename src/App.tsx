@@ -9,6 +9,7 @@ import { FinanceExtendedProvider } from "@/contexts/FinanceExtendedContext";
 import { PlanProvider } from "@/contexts/PlanContext";
 import { AuthProvider } from "@/hooks/useAuth";
 import { PlanSelector } from "@/components/PlanSelector";
+import PrivateRoute from "@/components/PrivateRoute";
 
 // Páginas atualizadas com design responsivo
 import Dashboard from "./pages/Dashboard";
@@ -44,24 +45,26 @@ const queryClient = new QueryClient();
 
 // Componente wrapper para páginas protegidas com sidebar
 const ProtectedPage = ({ children, showPlanSelector = false }: { children: React.ReactNode; showPlanSelector?: boolean }) => (
-  <SidebarProvider>
-    <div className="min-h-screen flex w-full">
-      <AppSidebar />
-      <main className="flex-1 flex flex-col min-w-0">
-        <div className="border-b border-sidebar-border p-2 lg:hidden">
-          <SidebarTrigger />
-        </div>
-        <div className="flex-1 overflow-auto">
-          {showPlanSelector && (
-            <div className="p-4 pb-0">
-              <PlanSelector />
-            </div>
-          )}
-          {children}
-        </div>
-      </main>
-    </div>
-  </SidebarProvider>
+  <PrivateRoute>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        <AppSidebar />
+        <main className="flex-1 flex flex-col min-w-0">
+          <div className="border-b border-sidebar-border p-2 lg:hidden">
+            <SidebarTrigger />
+          </div>
+          <div className="flex-1 overflow-auto">
+            {showPlanSelector && (
+              <div className="p-4 pb-0">
+                <PlanSelector />
+              </div>
+            )}
+            {children}
+          </div>
+        </main>
+      </div>
+    </SidebarProvider>
+  </PrivateRoute>
 );
 
 const App = () => (

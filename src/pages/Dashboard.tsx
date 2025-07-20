@@ -25,7 +25,7 @@ import { Link } from "react-router-dom";
 import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
 import { useFinanceExtendedContext } from "@/contexts/FinanceExtendedContext";
 import { PageLayout, StatsGrid, ContentGrid, ResponsiveCard } from "@/components/ui/page-layout";
-import { formatCurrency, formatDate, safeSum, parseToNumber } from "@/utils/formatters";
+import { formatCurrency, safeSum, parseToNumber } from "@/utils/formatters";
 
 interface Transaction {
   id: string;
@@ -76,9 +76,9 @@ const Dashboard = () => {
         const categoriesEndpoint = API_ENDPOINTS.CATEGORIES;
         
         const [transactionsData, categoriesData, goalsData] = await Promise.all([
-          makeApiRequest(API_ENDPOINTS.TRANSACTIONS),
-          makeApiRequest(categoriesEndpoint),
-          makeApiRequest(API_ENDPOINTS.GOALS),
+          makeApiRequest(API_ENDPOINTS.TRANSACTIONS, { method: 'GET' }),
+          makeApiRequest(categoriesEndpoint, { method: 'GET' }),
+          makeApiRequest(API_ENDPOINTS.GOALS, { method: 'GET' }),
         ]);
 
         // A makeApiRequest do api.ts retorna diretamente o JSON da resposta
@@ -112,15 +112,15 @@ const Dashboard = () => {
   // Calcular saldo
   const getBalance = () => {
     const income = safeSum(
-      transactions
+      ...transactions
         .filter((t) => t.tipo === "receita")
-        .map(t => t.valor)
+        .map(t => parseToNumber(t.valor))
     );
 
     const expenses = safeSum(
-      transactions
+      ...transactions
         .filter((t) => t.tipo === "despesa")
-        .map(t => t.valor)
+        .map(t => parseToNumber(t.valor))
     );
 
     return income - expenses;
@@ -138,15 +138,15 @@ const Dashboard = () => {
     });
 
     const income = safeSum(
-      currentMonthTransactions
+      ...currentMonthTransactions
         .filter((t) => t.tipo === "receita")
-        .map(t => t.valor)
+        .map(t => parseToNumber(t.valor))
     );
 
     const expenses = safeSum(
-      currentMonthTransactions
+      ...currentMonthTransactions
         .filter((t) => t.tipo === "despesa")
-        .map(t => t.valor)
+        .map(t => parseToNumber(t.valor))
     );
 
     return { income, expenses };

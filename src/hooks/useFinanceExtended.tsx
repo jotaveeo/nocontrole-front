@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/hooks/useAuth'
 import { 
   Transaction, 
   Category, 
@@ -101,6 +102,9 @@ const defaultCategories: Category[] = [
 ];
 
 export const useFinanceExtended = () => {
+  // Usar o hook de autenticação para verificar se usuário está logado
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
+  
   // State management for all financial data
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([]) // Inicia vazio
@@ -143,9 +147,8 @@ export const useFinanceExtended = () => {
 
     const loadDataFromAPI = async (endpoint: string, setter: Function) => {
       // Verificar se há token válido antes de fazer requisições
-      const token = localStorage.getItem('token')
-      if (!token) {
-        console.log(`Skipping API call to ${endpoint}: No token found`)
+      const accessToken = localStorage.getItem('access_token')
+      if (!accessToken) {
         return
       }
       
@@ -156,7 +159,10 @@ export const useFinanceExtended = () => {
           apiUrl = `${endpoint}?limit=500`; // Reduzindo o limite para teste
         }
         
-        const response = await makeApiRequest(apiUrl);
+        const response = await makeApiRequest(apiUrl, {
+          method: 'GET'
+        });
+        
         // A API retorna {success, message, data}, precisamos extrair o campo data
         let data = response.data || response;
         
@@ -242,14 +248,19 @@ export const useFinanceExtended = () => {
     }
 
     const initializeData = async () => {
+      // Não inicializar se ainda está carregando autenticação
+      if (authLoading) {
+        return;
+      }
+      
       setIsLoading(true)
       
-      // Verificar se há token antes de fazer requisições
-      const token = localStorage.getItem('token')
+      // Verificar se há token válido antes de fazer requisições
+      const accessToken = localStorage.getItem('access_token')
       
       try {
-        if (token) {
-          // Só carregar da API se estiver logado
+        if (isAuthenticated && accessToken && user) {
+          // Só carregar da API se estiver autenticado
           await Promise.all([
             loadDataFromAPI(API_ENDPOINTS.TRANSACTIONS, setTransactions),
             loadDataFromAPI(API_ENDPOINTS.CATEGORIES, setCategories),
@@ -258,8 +269,6 @@ export const useFinanceExtended = () => {
             loadDataFromAPI(API_ENDPOINTS.LIMITS, setCategoryLimits),
             loadDataFromAPI(API_ENDPOINTS.FIXED_EXPENSES, setFixedExpenses)
           ])
-        } else {
-          console.log('User not logged in, skipping API calls')
         }
         
         // Carregar dados que não dependem da API (sempre carregar) - exceto categorias
@@ -276,7 +285,7 @@ export const useFinanceExtended = () => {
     }
 
     initializeData()
-  }, [isInitialized])
+  }, [isInitialized, isAuthenticated, authLoading, user])
 
   // Save data to localStorage - with error handling (only after initialization)
   const saveToLocalStorage = (key: string, data: any) => {
@@ -375,15 +384,12 @@ export const useFinanceExtended = () => {
   }
 
   const updateWishlistItem = async (id: string, updates: Partial<WishlistItem>) => {
-    console.log('updateWishlistItem called with:', { id, updates });
     try {
       const response = await makeApiRequest(`${API_ENDPOINTS.WISHLIST}/${id}`, {
         method: 'PUT',
         body: JSON.stringify(updates)
       });
-      console.log('API response:', response);
       const updatedItem = response.data || response;
-      console.log('Updated item:', updatedItem);
       setWishlistItems(prev => prev.map(item => item.id === id ? updatedItem : item));
     } catch (error) {
       console.error('Error updating wishlist item:', error);
