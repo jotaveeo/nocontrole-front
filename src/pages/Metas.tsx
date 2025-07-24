@@ -250,7 +250,13 @@ const Metas = () => {
     const isOverdue = new Date(goal.prazo) < new Date() && !isCompleted;
 
     return (
-      <Card className={`${isCompleted ? 'border-green-200 bg-green-50' : isOverdue ? 'border-red-200 bg-red-50' : ''}`}>
+      <Card className={
+        isCompleted
+          ? 'border-green-200 bg-green-50 dark:bg-[#232136]'
+          : isOverdue
+          ? 'border-red-200 bg-red-50 dark:bg-[#2a1a1a]'
+          : ''
+      }>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">{goal.nome}</CardTitle>

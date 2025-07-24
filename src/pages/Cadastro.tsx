@@ -21,9 +21,10 @@ const Cadastro = () => {
 
   // Validação de senha forte
   const isPasswordValid = (password: string) =>
-    password.length >= 8 &&
-    /[0-9]/.test(password) &&
-    /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    password.length >= 6 &&
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /[0-9]/.test(password);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +39,7 @@ const Cadastro = () => {
     }
     if (!isPasswordValid(form.senha)) {
       alert(
-        "A senha deve ter pelo menos 8 caracteres, incluindo um número e um caractere especial."
+        "A senha deve ter pelo menos 6 caracteres, incluindo uma letra maiúscula, uma minúscula e um número."
       );
       return;
     }
@@ -49,17 +50,25 @@ const Cadastro = () => {
       const data = await makeApiRequest(API_ENDPOINTS.REGISTER, {
         method: 'POST',
         body: JSON.stringify({
-          nome: form.nome,
+          name: form.nome,
           email: form.email,
-          senha: form.senha,
+          password: form.senha,
         }),
       });
 
       if (data.success) {
+        // Salvar tokens se retornados na resposta
+        if (data.access_token) {
+          localStorage.setItem('access_token', data.access_token);
+          localStorage.setItem('refresh_token', data.refresh_token);
+          localStorage.setItem('expires_at', data.expires_at);
+          localStorage.setItem('user', JSON.stringify(data.data || data.user));
+        }
+        
         alert("Conta criada com sucesso!");
         navigate("/login");
       } else {
-        alert(data.message || "Erro ao criar conta. Tente novamente.");
+        alert(data.message || data.error || "Erro ao criar conta. Tente novamente.");
       }
     } catch (error) {
       console.error('Erro ao criar conta:', error);
@@ -140,7 +149,7 @@ const Cadastro = () => {
                 aria-label="Senha"
               />
               <span className="text-xs text-muted-foreground">
-                Mínimo 8 caracteres, incluindo número e caractere especial.
+                Mínimo 6 caracteres, incluindo maiúscula, minúscula e número.
               </span>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

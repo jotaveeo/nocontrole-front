@@ -128,7 +128,6 @@ const CofrinhoNew = () => {
     setSubmitting(true);
 
     try {
-      // Validar se a data foi fornecida
       if (!formData.data) {
         toast({
           title: "Data obrigatória",
@@ -140,8 +139,6 @@ const CofrinhoNew = () => {
       }
 
       const date = new Date(formData.data);
-      
-      // Validar se a data é válida
       if (isNaN(date.getTime())) {
         toast({
           title: "Data inválida",
@@ -160,28 +157,27 @@ const CofrinhoNew = () => {
         ano: date.getFullYear(),
       };
 
-      // Validação
       if (entryData.valor <= 0) {
         toast({
           title: "Valor inválido",
           description: "O valor deve ser maior que zero.",
           variant: "destructive",
         });
+        setSubmitting(false);
         return;
       }
 
       if (editingEntry) {
-        // Atualizar entrada existente
+        // Atualizar entrada existente usando _id
         const data = await makeApiRequest(`${API_ENDPOINTS.PIGGY_BANK}/${editingEntry}`, {
           method: 'PUT',
           body: JSON.stringify(entryData),
         });
-        
-        if (data.success) {
+        if (data.success && data.data) {
           setEntries(prevEntries => {
-            if (!Array.isArray(prevEntries)) return [{ ...entryData, id: editingEntry }];
-            return prevEntries.map(entry => 
-              entry.id === editingEntry ? { ...entry, ...entryData } : entry
+            if (!Array.isArray(prevEntries)) return [{ ...data.data }];
+            return prevEntries.map(entry =>
+              entry.id === data.data.id ? { ...data.data } : entry
             );
           });
           toast({
@@ -195,8 +191,7 @@ const CofrinhoNew = () => {
           method: 'POST',
           body: JSON.stringify(entryData),
         });
-        
-        if (data.success) {
+        if (data.success && data.data) {
           setEntries([...entries, data.data]);
           toast({
             title: "Entrada criada",
@@ -208,7 +203,7 @@ const CofrinhoNew = () => {
       setFormData({
         descricao: "",
         valor: "",
-        data: new Date().toISOString().split('T')[0], // Manter data atual como padrão
+        data: new Date().toISOString().split('T')[0],
       });
       setEditingEntry(null);
       setIsDialogOpen(false);
@@ -226,15 +221,14 @@ const CofrinhoNew = () => {
 
   const handleDeleteEntry = async (entryId: string) => {
     if (!confirm('Tem certeza que deseja excluir esta entrada?')) return;
-    
     try {
       const data = await makeApiRequest(`${API_ENDPOINTS.PIGGY_BANK}/${entryId}`, {
         method: 'DELETE',
       });
-      
       if (data.success) {
         setEntries(prevEntries => {
           if (!Array.isArray(prevEntries)) return [];
+          // Remover pelo id
           return prevEntries.filter(entry => entry.id !== entryId);
         });
         toast({
@@ -252,20 +246,19 @@ const CofrinhoNew = () => {
     }
   };
 
-  const handleEditEntry = (entry: PiggyBankEntry) => {
+  const handleEditEntry = (entry: any) => {
     // Validar a data antes de usar
     let validDate = entry.data;
     if (!validDate || isNaN(new Date(validDate).getTime())) {
       console.warn('Data inválida na entrada, usando data atual:', entry);
       validDate = new Date().toISOString().split('T')[0];
     }
-    
     setFormData({
       descricao: entry.descricao,
       valor: entry.valor.toString(),
       data: validDate,
     });
-    setEditingEntry(entry.id);
+    setEditingEntry(entry._id);
     setIsDialogOpen(true);
   };
 
@@ -291,7 +284,7 @@ const CofrinhoNew = () => {
 
   const getTotal = () => {
     if (!Array.isArray(entries)) return 0;
-    return safeSum(entries.map(entry => parseToNumber(entry.valor)));
+    return safeSum(...entries.map(entry => parseToNumber(entry.valor)));
   };
 
   const getMonthlyData = () => {
@@ -314,7 +307,7 @@ const CofrinhoNew = () => {
     if (!Array.isArray(entries)) return 0;
     const currentYear = new Date().getFullYear();
     return safeSum(
-      entries
+      ...entries
         .filter(entry => entry.ano === currentYear)
         .map(entry => parseToNumber(entry.valor))
     );
@@ -327,7 +320,7 @@ const CofrinhoNew = () => {
     const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
     
     return safeSum(
-      entries
+      ...entries
         .filter(entry => entry.mes === lastMonth + 1 && entry.ano === year)
         .map(entry => parseToNumber(entry.valor))
     );
@@ -339,7 +332,7 @@ const CofrinhoNew = () => {
     const year = now.getFullYear();
     
     return safeSum(
-      entries
+      ...entries
         .filter(entry => entry.mes === thisMonth && entry.ano === year)
         .map(entry => parseToNumber(entry.valor))
     );

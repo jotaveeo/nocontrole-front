@@ -106,7 +106,7 @@ const ReceitasNew = () => {
             id: income.id || income._id,
             fonte: income.fonte || income.source,
             tipo: income.tipo || income.type,
-            valor: income.valor || income.value || income.amount,
+            valor: Number(income.valor ?? income.value ?? income.amount ?? 0),
             data: income.data || income.dataRecebimento || income.date,
             recorrente: income.recorrente !== undefined ? income.recorrente : income.recurring !== undefined ? income.recurring : false,
             observacoes: income.observacoes || income.notes

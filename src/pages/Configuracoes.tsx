@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CategorizationRules } from "@/components/CategorizationRules";
+// import { CategorizationRules } from "@/components/CategorizationRules";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
 import { Loader2, Download, Upload, Moon, Sun, Monitor } from "lucide-react";
@@ -173,6 +173,7 @@ const Configuracoes = () => {
     }
   };
 
+  // Nova função: apaga todas as categorias e limpa dados financeiros vinculados (igual tela de categorias)
   const handleDeleteAllCategories = async () => {
     if (categories.length === 0) {
       toast({
@@ -182,20 +183,8 @@ const Configuracoes = () => {
       });
       return;
     }
-
     try {
       setDeleting(true);
-      
-      // Verificar se categories é um array válido
-      if (!Array.isArray(categories)) {
-        toast({
-          title: "Erro",
-          description: "Nenhuma categoria encontrada para excluir.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
       // Deletar cada categoria individualmente
       const deletePromises = categories.map(async (category) => {
         try {
@@ -207,44 +196,25 @@ const Configuracoes = () => {
           return { success: false, category, error };
         }
       });
-      
-      const results = await Promise.all(deletePromises);
-      const failedCategories = results.filter(result => !result.success);
-      const successfulCategories = results.filter(result => result.success);
-      
-      if (failedCategories.length > 0) {
-        // Algumas categorias não puderam ser excluídas
-        const errorCategory = failedCategories[0];
-        const errorMessage = errorCategory.error?.message || '';
-        
-        if (errorMessage.includes('foreign key') || errorMessage.includes('chave estrangeira')) {
-          toast({
-            title: "Não é possível excluir todas as categorias",
-            description: `Algumas categorias estão sendo usadas em transações, gastos fixos ou outros registros. Exclua primeiro os registros que usam essas categorias.`,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Erro ao excluir categorias",
-            description: `${failedCategories.length} categoria(s) não puderam ser excluídas.`,
-            variant: "destructive",
-          });
-        }
-        
-        // Atualizar a lista removendo apenas as categorias que foram excluídas com sucesso
-        const remainingCategories = Array.isArray(categories) ? categories.filter(category => 
-          !successfulCategories.some(result => result.category.id === category.id)
-        ) : [];
-        setCategories(remainingCategories);
-      } else {
-        // Todas as categorias foram excluídas
-        setCategories([]);
-        toast({
-          title: "Categorias excluídas",
-          description: "Todas as categorias foram excluídas com sucesso.",
-        });
+      await Promise.all(deletePromises);
+      // Limpar dados financeiros vinculados
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('financeflow_transactions');
+        localStorage.removeItem('financeflow_goals');
+        localStorage.removeItem('financeflow_wishlist');
+        localStorage.removeItem('financeflow_piggybank');
+        localStorage.removeItem('financeflow_debts');
+        localStorage.removeItem('financeflow_creditcards');
+        localStorage.removeItem('financeflow_limits');
+        localStorage.removeItem('financeflow_investments');
+        localStorage.removeItem('financeflow_fixedexpenses');
+        localStorage.removeItem('financeflow_incomesources');
       }
-      
+      setCategories([]);
+      toast({
+        title: "Categorias excluídas",
+        description: "Todas as categorias e dados financeiros vinculados foram excluídos com sucesso.",
+      });
       setDeleteAllCategoriesDialogOpen(false);
     } catch (error) {
       console.error('Erro ao excluir categorias:', error);
@@ -366,10 +336,10 @@ const Configuracoes = () => {
           </h1>
         </div>
 
-        <Tabs defaultValue="geral" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="geral" className="space-y-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="geral">Geral</TabsTrigger>
-            <TabsTrigger value="categorization">Categorização</TabsTrigger>
+            {/* <TabsTrigger value="categorization">Categorização</TabsTrigger> */}
             <TabsTrigger value="dados">Dados</TabsTrigger>
           </TabsList>
 
@@ -448,9 +418,9 @@ const Configuracoes = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="categorization">
+          {/* <TabsContent value="categorization">
             <CategorizationRules />
-          </TabsContent>
+          </TabsContent> */}
 
           <TabsContent value="dados" className="space-y-6">
             {/* Data Management */}

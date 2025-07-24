@@ -47,7 +47,7 @@ const months = [
 ];
 
 interface Debt {
-  id: string;
+  _id: string;
   descricao: string;
   credor: string;
   valorTotal: number;
@@ -56,7 +56,16 @@ interface Debt {
   parcelaAtual: number;
   totalParcelas: number;
   valorParcela: number;
-  status: 'pendente' | 'parcial' | 'pago';
+  status: string;
+  valorRestante?: number;
+  progresso?: number;
+  vencida?: boolean;
+  diasVencimento?: number;
+  categoria?: string;
+  juros?: number;
+  proximaRevisao?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 const DividasNew = () => {
@@ -68,6 +77,13 @@ const DividasNew = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<string | null>(null);
 
+  // Garante que ao setar editingDebt, o Dialog abre
+  useEffect(() => {
+    if (editingDebt) {
+      setIsDialogOpen(true);
+    }
+  }, [editingDebt]);
+
   const [formData, setFormData] = useState({
     descricao: "",
     credor: "",
@@ -77,7 +93,7 @@ const DividasNew = () => {
     parcelaAtual: "",
     totalParcelas: "",
     valorParcela: "",
-    status: "pendente" as 'pendente' | 'parcial' | 'pago',
+    status: "ativa",
   });
 
   // Carregar dívidas da API
@@ -90,16 +106,25 @@ const DividasNew = () => {
           const debtsArray = data.data?.data || data.data || [];
           // Mapear campos se necessário (MongoDB → Frontend)
           const mappedDebts = Array.isArray(debtsArray) ? debtsArray.map(debt => ({
-            id: debt.id || debt._id,
+            _id: debt._id || debt.id,
             descricao: debt.descricao || debt.description,
             credor: debt.credor || debt.creditor,
             valorTotal: debt.valorTotal || debt.totalValue,
             valorPago: debt.valorPago || debt.paidValue || 0,
             dataVencimento: debt.dataVencimento || debt.dueDate,
             parcelaAtual: debt.parcelaAtual || debt.currentInstallment || 1,
-            totalParcelas: debt.totalParcelas || debt.totalInstallments || 1,
+            totalParcelas: debt.totalParcelas || debt.totalInstallments || debt.parcelas || 1,
             valorParcela: debt.valorParcela || debt.installmentValue,
-            status: debt.status || 'pendente'
+            status: ["ativa", "paga", "vencida", "negociada"].includes(debt.status) ? debt.status : "ativa",
+            valorRestante: debt.valorRestante,
+            progresso: debt.progresso,
+            vencida: debt.vencida,
+            diasVencimento: debt.diasVencimento,
+            categoria: debt.categoria,
+            juros: debt.juros,
+            proximaRevisao: debt.proximaRevisao,
+            createdAt: debt.createdAt,
+            updatedAt: debt.updatedAt,
           })) : [];
           setDebts(mappedDebts);
         }
@@ -123,6 +148,10 @@ const DividasNew = () => {
     setSubmitting(true);
 
     try {
+      // Garante que o status enviado é válido
+      const statusValido = ["ativa", "paga", "vencida", "negociada"].includes(formData.status)
+        ? formData.status
+        : "ativa";
       const debtData = {
         descricao: formData.descricao,
         credor: formData.credor,
@@ -132,7 +161,7 @@ const DividasNew = () => {
         parcelaAtual: parseInt(formData.parcelaAtual) || 1,
         totalParcelas: parseInt(formData.totalParcelas) || 1,
         valorParcela: parseFloat(formData.valorParcela),
-        status: formData.status,
+        status: statusValido,
       };
 
       // Validação
@@ -169,17 +198,23 @@ const DividasNew = () => {
           method: 'PUT',
           body: JSON.stringify(debtData),
         });
-        
-        if (data.success) {
+        if (data.success && data.data) {
           setDebts(prevDebts => {
-            if (!Array.isArray(prevDebts)) return [{ ...debtData, id: editingDebt }];
-            return prevDebts.map(debt => 
-              debt.id === editingDebt ? { ...debt, ...debtData } : debt
+            if (!Array.isArray(prevDebts)) return [{ ...data.data }];
+            // Atualiza a dívida editada e mantém a ordem
+            return prevDebts.map(debt =>
+              debt._id === data.data._id ? { ...debt, ...data.data } : debt
             );
           });
           toast({
             title: "Dívida atualizada",
             description: "A dívida foi editada com sucesso.",
+          });
+        } else {
+          toast({
+            title: "Erro ao atualizar",
+            description: data.message || "Não foi possível atualizar a dívida.",
+            variant: "destructive",
           });
         }
       } else {
@@ -188,12 +223,22 @@ const DividasNew = () => {
           method: 'POST',
           body: JSON.stringify(debtData),
         });
-        
-        if (data.success) {
-          setDebts([...debts, data.data]);
+        if (data.success && data.data) {
+          // Evita duplicidade caso o backend retorne uma dívida já existente
+          setDebts(prevDebts => {
+            if (!Array.isArray(prevDebts)) return [data.data];
+            if (prevDebts.some(d => d._id === data.data._id)) return prevDebts;
+            return [...prevDebts, data.data];
+          });
           toast({
             title: "Dívida criada",
             description: "A nova dívida foi adicionada com sucesso.",
+          });
+        } else {
+          toast({
+            title: "Erro ao criar",
+            description: data.message || "Não foi possível criar a dívida.",
+            variant: "destructive",
           });
         }
       }
@@ -207,7 +252,7 @@ const DividasNew = () => {
         parcelaAtual: "",
         totalParcelas: "",
         valorParcela: "",
-        status: "pendente",
+        status: "ativa",
       });
       setEditingDebt(null);
       setIsDialogOpen(false);
@@ -225,20 +270,41 @@ const DividasNew = () => {
 
   const handleDeleteDebt = async (debtId: string) => {
     if (!confirm('Tem certeza que deseja excluir esta dívida?')) return;
-    
     try {
       const data = await makeApiRequest(`${API_ENDPOINTS.DEBTS}/${debtId}`, {
         method: 'DELETE',
       });
-      
       if (data.success) {
         setDebts(prevDebts => {
           if (!Array.isArray(prevDebts)) return [];
-          return prevDebts.filter(debt => debt.id !== debtId);
+          // Remove a dívida da lista
+          return prevDebts.filter(debt => debt._id !== debtId);
         });
+        // Se estava editando essa dívida, fecha o dialog e limpa o form
+        if (editingDebt === debtId) {
+          setEditingDebt(null);
+          setIsDialogOpen(false);
+          setFormData({
+            descricao: "",
+            credor: "",
+            valorTotal: "",
+            valorPago: "",
+            dataVencimento: "",
+            parcelaAtual: "",
+            totalParcelas: "",
+            valorParcela: "",
+            status: "ativa",
+          });
+        }
         toast({
           title: "Dívida excluída",
           description: "A dívida foi removida com sucesso.",
+        });
+      } else {
+        toast({
+          title: "Erro ao excluir",
+          description: data.message || "Não foi possível excluir a dívida.",
+          variant: "destructive",
         });
       }
     } catch (error) {
@@ -252,19 +318,23 @@ const DividasNew = () => {
   };
 
   const handleEditDebt = (debt: Debt) => {
+    // Garante que o status editável é válido e sempre string
+    let statusValido = "ativa";
+    if (typeof debt.status === "string" && ["ativa", "paga", "vencida", "negociada"].includes(debt.status)) {
+      statusValido = debt.status;
+    }
     setFormData({
-      descricao: debt.descricao,
-      credor: debt.credor,
-      valorTotal: debt.valorTotal.toString(),
-      valorPago: debt.valorPago.toString(),
-      dataVencimento: debt.dataVencimento,
-      parcelaAtual: debt.parcelaAtual.toString(),
-      totalParcelas: debt.totalParcelas.toString(),
-      valorParcela: debt.valorParcela.toString(),
-      status: debt.status,
+      descricao: debt.descricao || "",
+      credor: debt.credor || "",
+      valorTotal: typeof debt.valorTotal === "number" ? debt.valorTotal.toString() : debt.valorTotal ? String(debt.valorTotal) : "",
+      valorPago: typeof debt.valorPago === "number" ? debt.valorPago.toString() : debt.valorPago ? String(debt.valorPago) : "",
+      dataVencimento: debt.dataVencimento || "",
+      parcelaAtual: typeof debt.parcelaAtual === "number" ? debt.parcelaAtual.toString() : debt.parcelaAtual ? String(debt.parcelaAtual) : "",
+      totalParcelas: typeof debt.totalParcelas === "number" ? debt.totalParcelas.toString() : debt.totalParcelas ? String(debt.totalParcelas) : "",
+      valorParcela: typeof debt.valorParcela === "number" ? debt.valorParcela.toString() : debt.valorParcela ? String(debt.valorParcela) : "",
+      status: statusValido,
     });
-    setEditingDebt(debt.id);
-    setIsDialogOpen(true);
+    setEditingDebt(debt._id);
   };
 
   const formatCurrency = (value: number) => {
@@ -281,18 +351,24 @@ const DividasNew = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pendente':
+      case 'ativa':
         return <Badge variant="destructive">Pendente</Badge>;
       case 'parcial':
         return <Badge variant="secondary">Parcial</Badge>;
       case 'pago':
+      case 'quitada':
         return <Badge variant="default">Pago</Badge>;
+      case 'vencida':
+        return <Badge variant="destructive">Vencida</Badge>;
       default:
-        return <Badge variant="outline">Desconhecido</Badge>;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   const getProgressPercentage = (debt: Debt) => {
-    return Math.round((debt.valorPago / debt.valorTotal) * 100);
+    if (typeof debt.progresso === 'number') return Math.round(debt.progresso);
+    if (debt.valorTotal > 0) return Math.round((debt.valorPago / debt.valorTotal) * 100);
+    return 0;
   };
 
   if (loading) {
@@ -450,9 +526,10 @@ const DividasNew = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="pendente">Pendente</SelectItem>
-                          <SelectItem value="parcial">Parcial</SelectItem>
-                          <SelectItem value="pago">Pago</SelectItem>
+                          <SelectItem value="ativa">Ativa</SelectItem>
+                          <SelectItem value="paga">Paga</SelectItem>
+                          <SelectItem value="vencida">Vencida</SelectItem>
+                          <SelectItem value="negociada">Negociada</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -474,7 +551,7 @@ const DividasNew = () => {
                           parcelaAtual: "",
                           totalParcelas: "",
                           valorParcela: "",
-                          status: "pendente",
+                          status: "ativa",
                         });
                       }}
                     >
@@ -570,14 +647,34 @@ const DividasNew = () => {
                   </TableHeader>
                   <TableBody>
                     {Array.isArray(debts) ? debts.map((debt) => (
-                      <TableRow key={debt.id}>
-                        <TableCell className="font-medium">{debt.descricao}</TableCell>
+                      <TableRow key={debt._id}>
+                        <TableCell className="font-medium">
+                          {debt.descricao}
+                          {debt.vencida && (
+                            <Badge variant="destructive" className="ml-2">Vencida</Badge>
+                          )}
+                          {typeof debt.diasVencimento === 'number' && (
+                            <Badge variant={debt.diasVencimento <= 3 ? 'destructive' : 'secondary'} className="ml-2">
+                              {debt.diasVencimento > 0
+                                ? `Vence em ${debt.diasVencimento} dias`
+                                : 'Vence hoje'}
+                            </Badge>
+                          )}
+                          {debt.categoria && (
+                            <Badge variant="secondary" className="ml-2">{debt.categoria}</Badge>
+                          )}
+                        </TableCell>
                         <TableCell>{debt.credor}</TableCell>
-                        <TableCell>{formatCurrency(debt.valorTotal)}</TableCell>
+                        <TableCell>
+                          {formatCurrency(debt.valorTotal)}
+                          {typeof debt.valorRestante === 'number' && (
+                            <div className="text-xs text-muted-foreground">Restante: {formatCurrency(debt.valorRestante)}</div>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div 
+                              <div
                                 className="h-full bg-blue-500 rounded-full transition-all"
                                 style={{ width: `${getProgressPercentage(debt)}%` }}
                               />
@@ -614,7 +711,7 @@ const DividasNew = () => {
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              onClick={() => handleDeleteDebt(debt.id)}
+                              onClick={() => handleDeleteDebt(debt._id)}
                               title="Excluir dívida"
                             >
                               <Trash2 className="h-4 w-4" />

@@ -82,8 +82,16 @@ const Wishlist = () => {
     try {
       const response = await makeApiRequest(API_ENDPOINTS.CATEGORIES)
       if (response.success) {
-        const cats = response.data?.categorias || response.data?.data || []
-        setCategories(cats)
+        // Normalizar para garantir que sempre seja um array de categorias
+        const catsRaw = response.data?.categorias || response.data?.data || response.data || [];
+        const cats = Array.isArray(catsRaw)
+          ? catsRaw.map(cat => ({
+              id: cat.id || cat._id,
+              nome: cat.nome || cat.name,
+              tipo: cat.tipo || cat.type
+            }))
+          : [];
+        setCategories(cats);
       }
     } catch (error) {
       console.error('Erro ao carregar categorias:', error)
@@ -254,7 +262,7 @@ const Wishlist = () => {
       </StatsGrid>
 
       <ContentGrid>
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
           <h2 className="text-xl font-semibold">Meus Desejos</h2>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -267,97 +275,9 @@ const Wishlist = () => {
               <DialogHeader>
                 <DialogTitle>{editingItem ? 'Editar Item' : 'Novo Item na Wishlist'}</DialogTitle>
               </DialogHeader>
+              {/* ...existing code... */}
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="item">Nome do Item *</Label>
-                  <Input
-                    id="item"
-                    value={formData.item}
-                    onChange={(e) => setFormData(prev => ({ ...prev, item: e.target.value }))}
-                    placeholder="Ex: iPhone 15"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="descricao">Descrição</Label>
-                  <Textarea
-                    id="descricao"
-                    value={formData.descricao}
-                    onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
-                    placeholder="Motivo pelo qual deseja este item..."
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="valor">Valor *</Label>
-                  <Input
-                    id="valor"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.valor}
-                    onChange={(e) => setFormData(prev => ({ ...prev, valor: e.target.value }))}
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="categoria_id">Categoria *</Label>
-                  <Select value={formData.categoria_id} onValueChange={(value) => setFormData(prev => ({ ...prev, categoria_id: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="prioridade">Prioridade</Label>
-                  <Select value={formData.prioridade.toString()} onValueChange={(value) => setFormData(prev => ({ ...prev, prioridade: parseInt(value) }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 - Baixa</SelectItem>
-                      <SelectItem value="2">2 - Baixa-Média</SelectItem>
-                      <SelectItem value="3">3 - Média</SelectItem>
-                      <SelectItem value="4">4 - Alta-Média</SelectItem>
-                      <SelectItem value="5">5 - Alta</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value: 'desejando' | 'economizando' | 'comprado' | 'cancelado') => setFormData(prev => ({ ...prev, status: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="desejando">Desejando</SelectItem>
-                      <SelectItem value="economizando">Economizando</SelectItem>
-                      <SelectItem value="comprado">Comprado</SelectItem>
-                      <SelectItem value="cancelado">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={loading}>
-                    {loading ? 'Salvando...' : (editingItem ? 'Atualizar' : 'Adicionar')}
-                  </Button>
-                </div>
+                {/* ...existing code... */}
               </form>
             </DialogContent>
           </Dialog>
@@ -370,53 +290,66 @@ const Wishlist = () => {
             description="Adicione itens que você deseja comprar para começar a planejar suas economias."
           />
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {wishlistItems.map((item) => (
-              <Card key={item.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{item.item}</CardTitle>
-                    <Badge className={statusColors[item.status]}>
-                      {statusLabels[item.status]}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">{item.descricao}</p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold">
-                        R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                      <Badge variant="outline">
-                        Prioridade {item.prioridade}
-                      </Badge>
-                    </div>
-                    {item.valorEconomizado && item.valorEconomizado > 0 && (
-                      <div className="text-sm text-green-600">
-                        Economizado: R$ {item.valorEconomizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {wishlistItems.map((item) => {
+              // Buscar categoria pelo id
+              const categoria = categories.find(cat => cat.id === item.categoria_id);
+              return (
+                <Card key={item.id} className="hover:shadow-lg transition-shadow border border-zinc-800 dark:border-zinc-700 bg-zinc-900/80 dark:bg-zinc-900/80 rounded-xl">
+                  <CardHeader className="pb-2">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg font-bold text-white truncate max-w-[70%]">{item.item}</CardTitle>
+                        <Badge className={statusColors[item.status]}>{statusLabels[item.status]}</Badge>
                       </div>
-                    )}
-                    <div className="flex justify-end space-x-2 mt-4">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(item)}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      {categoria && (
+                        <Badge variant="secondary" className="w-fit text-xs px-2 py-1 bg-purple-900/30 text-purple-300 font-medium">
+                          {categoria.nome}
+                        </Badge>
+                      )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {item.descricao && (
+                        <p className="text-sm text-zinc-400 line-clamp-2">{item.descricao}</p>
+                      )}
+                      <div className="flex flex-row items-center justify-between gap-2">
+                        <span className="text-2xl font-bold text-green-400">
+                          R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                        <Badge variant="outline" className="text-xs px-2 py-1">
+                          Prioridade {item.prioridade}
+                        </Badge>
+                      </div>
+                      {item.valorEconomizado && item.valorEconomizado > 0 && (
+                        <div className="text-sm text-green-500 font-semibold">
+                          Economizado: R$ {item.valorEconomizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </div>
+                      )}
+                      <div className="flex justify-end space-x-2 mt-4">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEdit(item)}
+                          className="rounded-md"
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(item.id)}
+                          className="rounded-md"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </ContentGrid>

@@ -14,7 +14,7 @@ import PrivateRoute from "@/components/PrivateRoute";
 // Páginas atualizadas com design responsivo
 import Dashboard from "./pages/Dashboard";
 import HistoricoUpdated from "./pages/HistoricoUpdated";
-import Categorias from "./pages/Categorias";
+import CategoriasNew from "./pages/CategoriasNew";
 import Wishlist from "./pages/Wishlist";
 import Cartoes from "./pages/Cartoes";
 
@@ -134,7 +134,7 @@ const App = () => (
                 path="/categorias"
                 element={
                   <ProtectedPage>
-                    <Categorias/>
+                    <CategoriasNew/>
                   </ProtectedPage>
                 }
               />

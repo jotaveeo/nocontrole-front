@@ -136,7 +136,7 @@ export const useFinanceExtended = () => {
           setter(defaultValue)
         }
       } catch (error) {
-        console.error(`Error loading ${key}:`, error)
+        // erro ao carregar do localStorage
         if (key === 'categories') {
           setter(defaultCategories)
         } else {
@@ -149,19 +149,18 @@ export const useFinanceExtended = () => {
       // Verificar se há token válido antes de fazer requisições
       const accessToken = localStorage.getItem('access_token')
       if (!accessToken) {
+        // sem token, não carrega
         return
       }
       
       try {
-        // Para categorias, buscar todas sem paginação
-        let apiUrl = endpoint;
-        if (endpoint === API_ENDPOINTS.CATEGORIES) {
-          apiUrl = `${endpoint}?limit=500`; // Reduzindo o limite para teste
-        }
+        // carregando dados da API
         
-        const response = await makeApiRequest(apiUrl, {
+        const response = await makeApiRequest(endpoint, {
           method: 'GET'
         });
+        
+        // resposta recebida
         
         // A API retorna {success, message, data}, precisamos extrair o campo data
         let data = response.data || response;
@@ -174,15 +173,15 @@ export const useFinanceExtended = () => {
           data = data.categorias;
         }
         
-        // Para categorias, aplicar mapeamento de campos (MongoDB → Frontend)
+        // Para categorias, aplicar mapeamento de campos (Backend → Frontend)
         if (endpoint === API_ENDPOINTS.CATEGORIES && Array.isArray(data)) {
-          console.log(`Carregadas ${data.length} categorias da API`);
+          // categorias carregadas
           data = data.map((cat: any) => ({
             id: cat.id || cat._id,
-            name: cat.nome || cat.name,
-            icon: cat.icone || cat.icon,
-            color: cat.cor || cat.color,
-            type: cat.tipo === 'receita' ? 'income' : cat.tipo === 'despesa' ? 'expense' : cat.type
+            name: cat.nome, // Backend sempre usa "nome"
+            icon: cat.icone, // Backend sempre usa "icone"
+            color: cat.cor, // Backend sempre usa "cor"
+            type: (cat.tipo === 'receita' ? 'income' : 'expense') as 'income' | 'expense' // Conversão de tipo necessária
           }));
         }
         
@@ -190,11 +189,11 @@ export const useFinanceExtended = () => {
         if (Array.isArray(data)) {
           setter(data);
         } else {
-          console.warn(`Data from ${endpoint} is not an array:`, data);
+          // data não é array
           setter([]);
         }
       } catch (error) {
-        console.error(`Error loading from API ${endpoint}:`, error);
+        // erro ao carregar da API
         // Fallback para localStorage se API falhar
         const key = endpoint.replace('/', '');
         loadData(key, setter);
@@ -268,7 +267,10 @@ export const useFinanceExtended = () => {
             loadDataFromAPI(API_ENDPOINTS.DEBTS, setDebts),
             loadDataFromAPI(API_ENDPOINTS.LIMITS, setCategoryLimits),
             loadDataFromAPI(API_ENDPOINTS.FIXED_EXPENSES, setFixedExpenses)
-          ])
+          ]);
+        } else {
+          // Se não autenticado, usar categorias padrão para interface funcionar
+          setCategories(defaultCategories);
         }
         
         // Carregar dados que não dependem da API (sempre carregar) - exceto categorias
@@ -277,7 +279,7 @@ export const useFinanceExtended = () => {
         loadData('investments', setInvestments)
         loadData('incomesources', setIncomeSources)
       } catch (error) {
-        console.error('Error initializing data:', error)
+        // erro ao inicializar dados
       } finally {
         setIsLoading(false)
         setIsInitialized(true)
@@ -293,7 +295,7 @@ export const useFinanceExtended = () => {
     try {
       localStorage.setItem(`financeflow_${key}`, JSON.stringify(data))
     } catch (error) {
-      console.error(`Error saving ${key}:`, error)
+      // erro ao salvar no localStorage
     }
   }
 
@@ -327,22 +329,87 @@ export const useFinanceExtended = () => {
     setTransactions(prev => prev.filter(t => t.id !== id))
   }
 
-  // Categories management
-  const addCategory = (category: Omit<Category, 'id'>) => {
-    const newCategory: Category = {
-      ...category,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
+  // Categories management - com integração ao backend
+  const addCategory = async (category: Omit<Category, 'id'>) => {
+    try {
+      
+      // Converter do formato frontend para backend (conforme documentação API)
+      const backendCategory = {
+        nome: category.name,
+        icone: category.icon,
+        cor: category.color,
+        tipo: category.type === 'income' ? 'receita' : 'despesa',
+        ativo: true,
+        descricao: "" // Campo obrigatório no backend
+      };
+      
+      // payload preparado
+
+      const response = await makeApiRequest(API_ENDPOINTS.CATEGORIES, {
+        method: 'POST',
+        body: JSON.stringify(backendCategory)
+      });
+      if (response.success) {
+        await reloadCategories();
+      } else {
+        const newCategory: Category = {
+          ...category,
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
+        };
+        setCategories(prev => [...prev, newCategory]);
+      }
+    } catch (error) {
+      const newCategory: Category = {
+        ...category,
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
+      };
+      setCategories(prev => [...prev, newCategory]);
     }
-    setCategories(prev => [...prev, newCategory])
-  }
+  };
 
-  const updateCategory = (id: string, updates: Partial<Category>) => {
-    setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
-  }
+  const updateCategory = async (id: string, updates: Partial<Category>) => {
+    try {
+      
+      // Converter atualizações para formato backend (conforme documentação API)
+      const backendUpdates: any = {};
+      if (updates.name) backendUpdates.nome = updates.name;
+      if (updates.icon) backendUpdates.icone = updates.icon;
+      if (updates.color) backendUpdates.cor = updates.color;
+      if (updates.type) backendUpdates.tipo = updates.type === 'income' ? 'receita' : 'despesa';
+      // Manter ativo como true por padrão
+      backendUpdates.ativo = true;
 
-  const deleteCategory = (id: string) => {
-    setCategories(prev => prev.filter(c => c.id !== id))
-  }
+      // payload de atualização preparado
+
+      const response = await makeApiRequest(`${API_ENDPOINTS.CATEGORIES}/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(backendUpdates)
+      });
+      if (response.success) {
+        await reloadCategories();
+      } else {
+        setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+      }
+    } catch (error) {
+      setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+    }
+  };
+
+  const deleteCategory = async (id: string) => {
+    try {
+      
+      const response = await makeApiRequest(`${API_ENDPOINTS.CATEGORIES}/${id}`, {
+        method: 'DELETE'
+      });
+      if (response.success) {
+        await reloadCategories();
+      } else {
+        setCategories(prev => prev.filter(c => c.id !== id));
+      }
+    } catch (error) {
+      setCategories(prev => prev.filter(c => c.id !== id));
+    }
+  };
 
   // Goals management
   const addFinancialGoal = (goal: Omit<FinancialGoal, 'id' | 'createdAt'>) => {
@@ -372,8 +439,6 @@ export const useFinanceExtended = () => {
       const newItem = response.data || response;
       setWishlistItems(prev => [newItem, ...prev]);
     } catch (error) {
-      console.error('Error adding wishlist item:', error);
-      // Fallback para criação local em caso de erro
       const localItem: WishlistItem = {
         ...item,
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -392,8 +457,6 @@ export const useFinanceExtended = () => {
       const updatedItem = response.data || response;
       setWishlistItems(prev => prev.map(item => item.id === id ? updatedItem : item));
     } catch (error) {
-      console.error('Error updating wishlist item:', error);
-      // Fallback para atualização local em caso de erro
       setWishlistItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
     }
   }
@@ -405,8 +468,6 @@ export const useFinanceExtended = () => {
       });
       setWishlistItems(prev => prev.filter(item => item.id !== id));
     } catch (error) {
-      console.error('Error deleting wishlist item:', error);
-      // Fallback para remoção local em caso de erro
       setWishlistItems(prev => prev.filter(item => item.id !== id));
     }
   }
@@ -536,43 +597,149 @@ export const useFinanceExtended = () => {
     setInvestments(prev => prev.filter(i => i.id !== id))
   }
 
+  // Função para criar categorias padrão via backend
+  const createDefaultCategories = async () => {
+    try {
+      // 1. Buscar todas as categorias existentes
+      const response = await makeApiRequest(API_ENDPOINTS.CATEGORIES, { method: 'GET' });
+      let existing = response.data || response;
+      if (existing && typeof existing === 'object' && existing.data && Array.isArray(existing.data)) {
+        existing = existing.data;
+      } else if (existing && typeof existing === 'object' && existing.categorias && Array.isArray(existing.categorias)) {
+        existing = existing.categorias;
+      }
+      // 2. Excluir todas as categorias existentes
+      if (Array.isArray(existing)) {
+        for (const cat of existing) {
+          const id = cat.id || cat._id;
+          if (id) {
+            try {
+              await makeApiRequest(`${API_ENDPOINTS.CATEGORIES}/${id}`, { method: 'DELETE' });
+            } catch {}
+          }
+        }
+      }
+      // 3. Criar todas as categorias padrão
+      let createdCount = 0;
+      let errorCount = 0;
+      for (const category of defaultCategories) {
+        try {
+          const backendCategory = {
+            nome: category.name,
+            icone: category.icon,
+            cor: category.color,
+            tipo: category.type === 'income' ? 'receita' : 'despesa',
+            ativo: true,
+            descricao: `Categoria ${category.name} criada automaticamente`
+          };
+          const resp = await makeApiRequest(API_ENDPOINTS.CATEGORIES, {
+            method: 'POST',
+            body: JSON.stringify(backendCategory)
+          });
+          if (resp.success) {
+            createdCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          errorCount++;
+        }
+      }
+      await reloadCategories();
+      if (createdCount > 0) {
+        return {
+          success: true,
+          message: `${createdCount} categorias padrão criadas com sucesso!${errorCount > 0 ? ` (${errorCount} falharam)` : ''}`
+        };
+      } else {
+        return { success: false, message: 'Não foi possível criar nenhuma categoria padrão' };
+      }
+    } catch (error) {
+      return { success: false, message: 'Erro ao criar categorias padrão' };
+    }
+  };
+
   // Função para recarregar categorias da API
   const reloadCategories = async () => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      console.log('No token found, skipping categories reload')
+    const accessToken = localStorage.getItem('access_token')
+    if (!accessToken) {
+      console.log('No access token found, skipping categories reload')
       return
     }
     
     try {
-      // Buscar todas as categorias sem paginação
-      const response = await makeApiRequest(`${API_ENDPOINTS.CATEGORIES}?limit=500`);
-      let data = response.data || response;
+      // Buscar todas as categorias - sem parâmetros primeiro para debugar
+      console.log('🔍 Recarregando categorias da API...');
+      const response = await makeApiRequest(API_ENDPOINTS.CATEGORIES);
+      console.log('📦 Resposta completa da API:', response);
       
-      if (data && typeof data === 'object' && data.categorias && Array.isArray(data.categorias)) {
-        data = data.categorias;
-      } else if (data && typeof data === 'object' && data.data && Array.isArray(data.data)) {
-        data = data.data;
+      let data = response;
+      
+      // Debug: mostrar estrutura da resposta
+      console.log('🔧 Estrutura da resposta:', {
+        hasData: !!response.data,
+        hasCategorias: !!(response.categorias),
+        responseType: typeof response,
+        responseKeys: Object.keys(response || {})
+      });
+      
+      // Verificar diferentes estruturas de resposta
+      if (response && response.data) {
+        data = response.data;
+        console.log('✅ Usando response.data');
+      } else if (response && response.categorias) {
+        data = response.categorias;
+        console.log('✅ Usando response.categorias');
+      } else if (Array.isArray(response)) {
+        data = response;
+        console.log('✅ Response já é array');
       }
       
-      // Aplicar mapeamento de campos (MongoDB → Frontend)
+      console.log('📋 Data final para processar:', data);
+      
+      // Aplicar mapeamento de campos (Backend → Frontend)
       if (Array.isArray(data)) {
-        console.log(`Recarregadas ${data.length} categorias da API`);
+        console.log(`✅ Processando ${data.length} categorias da API`);
         const mappedCategories = data.map((cat: any) => ({
           id: cat.id || cat._id,
-          name: cat.nome || cat.name,
-          icon: cat.icone || cat.icon,
-          color: cat.cor || cat.color,
-          type: cat.tipo === 'receita' ? 'income' : cat.tipo === 'despesa' ? 'expense' : cat.type
+          name: cat.nome, // Backend sempre usa "nome"
+          icon: cat.icone, // Backend sempre usa "icone" 
+          color: cat.cor, // Backend sempre usa "cor"
+          type: (cat.tipo === 'receita' ? 'income' : 'expense') as 'income' | 'expense' // Conversão de tipo
         }));
+        console.log('🎯 Categorias mapeadas:', mappedCategories);
         setCategories(mappedCategories);
       } else {
+        console.warn('⚠️ Data não é um array, setando vazio. Data:', data);
         setCategories([]);
       }
     } catch (error) {
-      console.error('Error reloading categories:', error);
+      console.error('❌ Error reloading categories:', error);
     }
   }
+
+  // Função para reativar todas as categorias do usuário (soft undelete)
+  const reactivateAllCategories = async () => {
+    try {
+      const accessToken = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:3000/api/categories/reactivate-all', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const result = await response.json();
+      if (result.success) {
+        await reloadCategories();
+        return { success: true, message: `${result.updatedCount || 'Todas'} categorias reativadas!` };
+      } else {
+        return { success: false, message: result.message || 'Erro ao reativar categorias.' };
+      }
+    } catch (error) {
+      return { success: false, message: 'Erro ao reativar categorias.' };
+    }
+  };
 
   return {
     // State
@@ -649,5 +816,7 @@ export const useFinanceExtended = () => {
 
     // Utility methods
     reloadCategories,
+    createDefaultCategories,
+    reactivateAllCategories,
   }
 }

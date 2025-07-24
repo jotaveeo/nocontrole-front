@@ -51,7 +51,7 @@ export const useCategoryLimits = () => {
     };
 
     loadApiLimits();
-  }, []);
+  }, [transactions]);
 
   // Load custom limits from localStorage (fallback)
   useEffect(() => {
@@ -165,13 +165,26 @@ export const useCategoryLimits = () => {
   // Calculate category limits
   const getCategoryLimits = (): CategoryLimit[] => {
     // Adaptar transações do backend para o formato esperado
-    const adaptedTransactions = Array.isArray(transactions) ? transactions.map((t: any) => ({
-      ...t,
-      type: t.tipo === 'receita' ? 'income' : 'expense',
-      amount: parseFloat(t.valor || t.amount || 0),
-      date: t.data || t.date,
-      category: t.categoria_nome || t.category
-    })) : [];
+    // Função para normalizar nomes (remover acentos e deixar minúsculo)
+    const normalize = (str: string) => str?.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+
+    const adaptedTransactions = Array.isArray(transactions) ? transactions.map((t: any) => {
+      const categoryName = t.categoria_nome || t.category || t.nome || t.name;
+      let categoryId = t.categoria_id || t.categoryId || t.categoria || t.category_id || null;
+      if (!categoryId && categoryName && Array.isArray(categories)) {
+        const normalized = normalize(categoryName);
+        const found = categories.find((cat) => normalize(cat.name) === normalized);
+        if (found) categoryId = found.id;
+      }
+      return {
+        ...t,
+        type: t.tipo === 'receita' ? 'income' : 'expense',
+        amount: parseFloat(t.valor || t.amount || 0),
+        date: t.data || t.date,
+        categoryId,
+        category: categoryName
+      };
+    }) : [];
 
     console.log('Debug limites:', {
       transactions: transactions,
@@ -186,8 +199,9 @@ export const useCategoryLimits = () => {
       .map((category) => {
         const categoryTransactions = adaptedTransactions.filter((t) => {
           const transactionDate = new Date(t.date);
+          // Compara pelo id da categoria para garantir correspondência
           return (
-            (t.category === category.name || t.categoria_nome === category.name) &&
+            t.categoryId === category.id &&
             t.type === "expense" &&
             transactionDate.getMonth() === selectedMonth &&
             transactionDate.getFullYear() === selectedYear

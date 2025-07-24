@@ -260,7 +260,7 @@ const Cartoes = () => {
   }
 
   // Estatísticas
-  const totalLimite = Array.isArray(cards) ? safeSum(cards.filter(card => card.ativo).map(card => parseToNumber(card.limite))) : 0
+  const totalLimite = Array.isArray(cards) ? safeSum(...cards.filter(card => card.ativo).map(card => parseToNumber(card.limite))) : 0
   const cartaoAtivos = Array.isArray(cards) ? cards.filter(card => card.ativo) : []
   const cartaoPrincipal = Array.isArray(cards) ? cards.find(card => card.principal) : null
 

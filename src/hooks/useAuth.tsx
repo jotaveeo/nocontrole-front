@@ -254,21 +254,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const data = await makeApiRequest(API_ENDPOINTS.LOGIN, {
         method: "POST",
-        body: JSON.stringify({ email, senha }),
+        body: JSON.stringify({ email, password: senha }),
       });
 
       if (data.success) {
-        // Salvar tokens JWT conforme especificação
-        localStorage.setItem('access_token', data.data.access_token || data.data.token);
-        localStorage.setItem('refresh_token', data.data.refresh_token || '');
-        localStorage.setItem('user_id', data.data.user?.id || data.data.id);
-        localStorage.setItem('expires_at', data.data.expires_at || (Math.floor(Date.now() / 1000) + 3600).toString());
-        localStorage.setItem('financi_user_name', data.data.user?.nome || data.data.nome);
+        // Salvar tokens JWT conforme especificação do backend
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('refresh_token', data.refresh_token);
+        localStorage.setItem('user_id', data.data?.id || data.data?._id);
+        localStorage.setItem('expires_at', data.expires_at);
 
         const userData = {
-          id: data.data.user?.id || data.data.id,
-          name: data.data.user?.nome || data.data.nome,
-          email: data.data.user?.email || data.data.email,
+          id: data.data?.id || data.data?._id,
+          name: data.data?.name,
+          email: data.data?.email,
         };
 
         localStorage.setItem("user", JSON.stringify(userData));
@@ -277,7 +276,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         authLogger.info("✅ Login realizado com sucesso");
         return true;
       } else {
-        throw new Error(data.message || "Erro no login");
+        throw new Error(data.message || data.error || "Erro no login");
       }
     } catch (error) {
       authLogger.error("❌ Erro no login:", error);

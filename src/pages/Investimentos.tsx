@@ -272,11 +272,11 @@ const InvestimentosNew = () => {
   };
 
   const getTotalInvested = () => {
-    return safeSum(investments.map(inv => parseToNumber(inv.valorInvestido)));
+    return safeSum(...investments.map(inv => parseToNumber(inv.valorInvestido)));
   };
 
   const getTotalCurrentValue = () => {
-    return safeSum(investments.map(inv => parseToNumber(inv.valorAtual)));
+    return safeSum(...investments.map(inv => parseToNumber(inv.valorAtual)));
   };
 
   const getTotalReturn = () => {

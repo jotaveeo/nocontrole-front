@@ -190,7 +190,9 @@ const HistoricoUpdated = () => {
       tipo: transaction.tipo,
       valor: transaction.valor.toString(),
       descricao: transaction.descricao,
-      categoria: transaction.categoria?.id || '',
+      categoria: typeof transaction.categoria === 'object' && transaction.categoria !== null
+        ? transaction.categoria.id
+        : (typeof transaction.categoria === 'string' ? transaction.categoria : ''),
       data: transaction.data.split('T')[0], // Formato YYYY-MM-DD
       recorrente: transaction.recorrente || false
     });
@@ -202,6 +204,7 @@ const HistoricoUpdated = () => {
     try {
       setSubmitting(true);
       
+      // Enviar sempre o campo 'categoria' no payload
       const response = await makeApiRequest(
         `${API_ENDPOINTS.TRANSACTIONS}/${editingTransaction.id}`,
         {
@@ -210,7 +213,7 @@ const HistoricoUpdated = () => {
             tipo: editForm.tipo,
             valor: parseFloat(editForm.valor),
             descricao: editForm.descricao,
-            categoria_id: editForm.categoria,
+            categoria: editForm.categoria, // padronizado
             data: editForm.data,
             observacoes: '',
             recorrente: editForm.recorrente
@@ -227,15 +230,14 @@ const HistoricoUpdated = () => {
                 tipo: editForm.tipo,
                 valor: parseFloat(editForm.valor),
                 descricao: editForm.descricao,
-                categoria: categories.find(cat => cat.id === editForm.categoria) ? 
-                  { id: editForm.categoria, nome: categories.find(cat => cat.id === editForm.categoria)!.nome } : 
-                  undefined,
+                categoria: categories.find(cat => cat.id === editForm.categoria)
+                  ? { id: editForm.categoria, nome: categories.find(cat => cat.id === editForm.categoria)!.nome }
+                  : (typeof editForm.categoria === 'string' ? { id: editForm.categoria, nome: 'Sem categoria' } : undefined),
                 data: editForm.data,
                 recorrente: editForm.recorrente
               }
             : t
         ));
-        
         setEditingTransaction(null);
         toast({
           title: "Sucesso",

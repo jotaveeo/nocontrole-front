@@ -22,6 +22,8 @@ export interface ApiRequestOptions {
 
 // Endpoints da API baseados no backend Flask
 export const API_ENDPOINTS = {
+  // Cofrinho
+  PIGGY_BANK: '/api/piggybank',
   // Autenticação
   LOGIN: '/api/auth/login',
   REGISTER: '/api/auth/register',
@@ -41,6 +43,7 @@ export const API_ENDPOINTS = {
   // Categorias
   CATEGORIES: '/api/categories',
   CATEGORIES_DEFAULT: '/api/categories/default',
+  CATEGORIES_DELETE_ALL: '/api/categories/all',
   
   // Receitas
   INCOMES: '/api/incomes',
@@ -72,7 +75,7 @@ export const API_ENDPOINTS = {
   WISHLIST_SUMMARY: '/api/wishlist/summary',
   
   // Limites
-  LIMITS: '/api/limits',
+  LIMITS: '/api/category-limits',
   LIMITS_CHECK: '/api/limits/check',
   LIMITS_SUMMARY: '/api/limits/summary',
   
@@ -281,6 +284,11 @@ export class ApiClient {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
+  // Hard delete de todas as categorias do usuário
+  async deleteAllCategories(): Promise<ApiResponse<any>> {
+    return this.delete(API_ENDPOINTS.CATEGORIES_DELETE_ALL);
+  }
+
   // Métodos específicos para operações comuns do backend
   
   // Transações
@@ -403,32 +411,28 @@ export const apiClient = new ApiClient();
 // Função de conveniência para compatibilidade com código existente
 export const makeApiRequest = async (endpoint: string, options: RequestInit = {}) => {
   try {
-    // Usar access_token em vez de token antigo
+    // --- LOGS DE CONSOLE REMOVIDOS PARA PRODUÇÃO ---
     const accessToken = localStorage.getItem('access_token');
     const expiresAt = localStorage.getItem('expires_at');
-    
     let authHeaders = {};
     if (accessToken && expiresAt) {
       const expirationTime = parseInt(expiresAt) * 1000;
       const now = Date.now();
-      
       if (now < expirationTime) {
         authHeaders = { 'Authorization': `Bearer ${accessToken}` };
       }
     }
-
     const finalHeaders = {
       'Content-Type': 'application/json',
       ...authHeaders,
       ...options.headers,
     };
-
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: finalHeaders,
       ...options,
     });
-
     if (!response.ok) {
+      
       if (response.status === 401) {
         // Para 401, tentar renovar o token primeiro
         const isCriticalAuthRoute = endpoint.includes('/auth/') || endpoint.includes('/me');
@@ -513,11 +517,11 @@ export const makeApiRequest = async (endpoint: string, options: RequestInit = {}
       // Tentar extrair mensagem de erro do backend
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+      // erro do backend
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
-    
     // O backend Flask retorna diretamente o objeto ou array
     // Vamos padronizar para o formato ApiResponse esperado pelo frontend
     if (data && typeof data === 'object' && !data.hasOwnProperty('success')) {
@@ -527,7 +531,6 @@ export const makeApiRequest = async (endpoint: string, options: RequestInit = {}
         message: 'Operação realizada com sucesso'
       };
     }
-    
     return data;
   } catch (error) {
     apiLogger.error('❌ Error:', error);
