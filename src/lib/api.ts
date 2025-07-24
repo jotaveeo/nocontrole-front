@@ -95,7 +95,7 @@ export const API_ENDPOINTS = {
 } as const;
 
 // Configuração base da API
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'https://nocontrole-back.onrender.com';
 
 // Cliente HTTP com interceptors
 export class ApiClient {
