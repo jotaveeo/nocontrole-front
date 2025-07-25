@@ -354,7 +354,7 @@ const NovoLancamento = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Tipo */}
               <div className="space-y-2">
-                <Label htmlFor="tipo">Tipo *</Label>
+                <Label htmlFor="tipo">Tipo*</Label>
                 <Select
                   value={formData.tipo}
                   onValueChange={(value: "receita" | "despesa") => {
@@ -383,7 +383,7 @@ const NovoLancamento = () => {
 
               {/* Valor */}
               <div className="space-y-2">
-                <Label htmlFor="valor">Valor *</Label>
+                <Label htmlFor="valor">Valor*</Label>
                 <Input
                   id="valor"
                   type="number"
@@ -398,7 +398,7 @@ const NovoLancamento = () => {
 
               {/* Descrição */}
               <div className="space-y-2">
-                <Label htmlFor="descricao">Descrição *</Label>
+                <Label htmlFor="descricao">Descrição*</Label>
                 <Input
                   id="descricao"
                   value={formData.descricao}
@@ -411,7 +411,7 @@ const NovoLancamento = () => {
 
               {/* Categoria */}
               <div className="space-y-2">
-                <Label htmlFor="categoria">Categoria *</Label>
+                <Label htmlFor="categoria">Categoria*</Label>
                 <Select
                   value={formData.categoriaId}
                   onValueChange={(value) => setFormData({ ...formData, categoriaId: value })}
@@ -459,7 +459,7 @@ const NovoLancamento = () => {
 
               {/* Data */}
               <div className="space-y-2">
-                <Label htmlFor="data">Data *</Label>
+                <Label htmlFor="data">Data*</Label>
                 <Input
                   id="data"
                   type="date"
