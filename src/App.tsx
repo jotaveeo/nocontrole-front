@@ -28,6 +28,7 @@ import Calendario from "./pages/Calendario";
 import Limites from "./pages/Limites";
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
+import AssinaturaSucesso from "./pages/AssinaturaSucesso";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
 import Cofrinho from "./pages/Cofrinho";
@@ -86,6 +87,7 @@ const App = () => (
               <Route path="/termos" element={<Termos />} />
               <Route path="/lgpd" element={<LGPD />} />
               <Route path="/status" element={<Status />} />
+            <Route path="/assinatura-sucesso" element={<AssinaturaSucesso />} />
 
               {/* Protected Routes with Sidebar */}
               <Route

@@ -33,11 +33,13 @@ const Landing = () => {
 
   // Verificar tema inicial
   useEffect(() => {
-    const isDarkMode = localStorage.getItem('theme') === 'dark' || 
-      (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const isDarkMode =
+      localStorage.getItem("theme") === "dark" ||
+      (!localStorage.getItem("theme") &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
     setIsDark(isDarkMode);
     if (isDarkMode) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     }
   }, []);
 
@@ -46,11 +48,11 @@ const Landing = () => {
     const newTheme = !isDark;
     setIsDark(newTheme);
     if (newTheme) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
     } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
     }
   };
 
@@ -113,33 +115,22 @@ const Landing = () => {
 
   const plans = [
     {
-      name: "🎯 Teste Grátis",
-      price: "GRÁTIS",
-      period: " /por 7 dias",
-      description: "🚀 Experimente TODAS as funcionalidades PREMIUM!",
-      features: [
-        "✨ Acesso completo por 7 dias",
-        "🔥 Todas as funcionalidades premium",
-        "📊 Relatórios ilimitados",
-        "🎯 Metas ilimitadas",
-        "🎨 Categorias ilimitadas",
-      ],
-      cta: "Começar Teste Grátis",
-      popular: false,
-    },
-    {
       name: "💎 Plano Mensal",
       price: "R$ 24,90",
-      period: "/mês",
-      description: "✨ Controle total - Cancele quando quiser!",
+      period: "/mês - 7 Dias Grátis",
+      description:
+        "✨ Controle total das suas finanças - Cancele quando quiser!",
       features: [
-        "🔓 Acesso total às funcionalidades",
-        "📊 Relatórios avançados ilimitados",
-        "🎯 Metas ilimitadas",
-        "📱 Alertas por WhatsApp",
-        "🎨 Categorias personalizadas",
-        "💾 Backup automático",
-        "🔄 Sincronização entre dispositivos",
+        "Relatórios avançados ilimitados",
+        "Metas financeiras ilimitadas",
+        "Wishlist e mural de desejos",
+        "Categorias personalizadas",
+        "Sincronização entre dispositivos",
+        "Gestão de cartões de crédito",
+        "Limites por categoria inteligentes",
+        "Cofrinho digital",
+        "Investimentos centralizados",
+        "Calendário financeiro",
       ],
       cta: "Assinar Mensal",
       popular: false,
@@ -148,18 +139,17 @@ const Landing = () => {
       name: "🏆 Plano Anual",
       price: "12x R$ 20,90",
       period: "/mês",
-      description: "🔥 MELHOR OFERTA! Economize R$ 48 por ano",
+      description:
+        "🔥 MELHOR OFERTA! Economize R$ 48 por ano - Apenas R$ 250,80/ano",
       features: [
         "💰 Economize R$ 48 comparado ao mensal",
         "🔓 Tudo do plano mensal incluído",
         "👥 Múltiplas contas e usuários",
         "🤖 Automações e regras inteligentes",
-        "👨‍👩‍👧‍👦 Orçamento familiar compartilhado",
-        "☁️ Backup automático em nuvem",
-        "🎨 Temas e personalização exclusivos",
+        "📊 Relatórios avançados e insights com IA",
         "💬 Suporte VIP 24/7 prioritário",
-        "📊 Relatórios avançados e insights IA",
         "🔄 Sincronização entre dispositivos",
+        "☁️ Backup automático em nuvem",
       ],
       cta: "Assinar Anual",
       popular: true,
@@ -235,7 +225,11 @@ const Landing = () => {
             onClick={toggleTheme}
             className="p-2"
           >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {isDark ? (
+              <Sun className="w-4 h-4" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
           </Button>
           <Button variant="outline" className="hidden md:flex" asChild>
             <Link to="/login">Já tenho conta</Link>
@@ -321,7 +315,7 @@ const Landing = () => {
       </section>
 
       {/* Pricing Section */}
-      <section className="container mx-auto px-4 py-16 bg-white dark:bg-gray-800 rounded-3xl my-16 shadow-sm">
+      <section className="container mx-auto px-16 py-10 bg-white dark:bg-gray-800 rounded-3xl my-16 shadow-sm">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Planos que cabem no seu bolso
@@ -331,7 +325,7 @@ const Landing = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-8">
           {plans.map((plan, index) => (
             <Card
               key={index}
@@ -347,21 +341,31 @@ const Landing = () => {
                 </Badge>
               )}
               <CardHeader className="text-center">
-                <CardTitle className="text-xl dark:text-white">{plan.name}</CardTitle>
+                <CardTitle className="text-xl dark:text-white">
+                  {plan.name}
+                </CardTitle>
                 <div className="py-4">
-                  <span className="text-3xl font-bold dark:text-white">{plan.price}</span>
+                  <span className="text-3xl font-bold dark:text-white">
+                    {plan.price}
+                  </span>
                   {plan.period && (
-                    <span className="text-gray-500 dark:text-gray-400">{plan.period}</span>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {plan.period}
+                    </span>
                   )}
                 </div>
-                <CardDescription className="dark:text-gray-300">{plan.description}</CardDescription>
+                <CardDescription className="dark:text-gray-300">
+                  {plan.description}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col flex-1">
                 <ul className="space-y-3 mb-6 flex-1">
                   {plan.features.map((feature, featureIndex) => (
                     <li key={featureIndex} className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      <span className="text-sm dark:text-gray-300">{feature}</span>
+                      <span className="text-sm dark:text-gray-300">
+                        {feature}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -372,6 +376,60 @@ const Landing = () => {
                       : "variant-outline"
                   }`}
                   variant={plan.popular ? "default" : "outline"}
+                  onClick={async () => {
+                    let planPayload;
+                    if (plan.popular) {
+                      planPayload = {
+                        reason: "Plano Anual",
+                        auto_recurring: {
+                          frequency: 12,
+                          frequency_type: "months",
+                          transaction_amount: 250.8,
+                          currency_id: "BRL",
+                        },
+                        back_url: "https://nocontrole-front.netlify.app/assinatura-sucesso",
+                      };
+                    } else {
+                      planPayload = {
+                        reason: "Plano Mensal",
+                        auto_recurring: {
+                          frequency: 1,
+                          frequency_type: "months",
+                          transaction_amount: 24.9,
+                          currency_id: "BRL",
+                        },
+                        back_url: "https://nocontrole-front.netlify.app/assinatura-sucesso",
+                      };
+                    }
+                    try {
+                      const res = await fetch(
+                        "http://localhost:3000/api/mercadoPagoSubscriptions/plan",
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                          },
+                          body: JSON.stringify(planPayload),
+                        }
+                      );
+                      const data = await res.json();
+                      if (data.success) {
+                        // Redireciona automaticamente para o checkout Mercado Pago
+                        if (data.data?.init_point) {
+                          window.location.href = data.data.init_point;
+                        } else {
+                          alert(
+                            "Plano criado! ID: " +
+                              (data.data?.id || data.data?.plan?.id || "")
+                          );
+                        }
+                      } else {
+                        alert("Erro ao criar plano!");
+                      }
+                    } catch (err) {
+                      alert("Erro ao conectar ao backend!");
+                    }
+                  }}
                 >
                   {plan.cta}
                 </Button>
@@ -412,7 +470,9 @@ const Landing = () => {
                     <Users className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <div className="font-semibold dark:text-white">{testimonial.name}</div>
+                    <div className="font-semibold dark:text-white">
+                      {testimonial.name}
+                    </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       {testimonial.role}
                     </div>
