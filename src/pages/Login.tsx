@@ -1,18 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "react-router-dom";
-import { auth, googleProvider } from "@/lib/firebase";
-import { signInWithPopup } from "firebase/auth";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 import { Loader2, LogIn } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const Login = () => {
   const [form, setForm] = useState({ email: "", senha: "" });
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const { signIn, user, loading: googleLoading, error } = useGoogleAuth();
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -49,17 +48,17 @@ const Login = () => {
     }
   };
 
+
   const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    try {
-      await signInWithPopup(auth, googleProvider);
-      navigate("/dashboard");
-    } catch (error) {
-      alert("Erro ao autenticar com Google");
-    } finally {
-      setGoogleLoading(false);
-    }
+    await signIn();
+    // O redirecionamento será feito pelo useEffect abaixo
   };
+
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-tl from-violet-950 via-violet-700 to-violet-400 relative overflow-hidden">
@@ -134,6 +133,9 @@ const Login = () => {
               )}
               {googleLoading ? "Entrando..." : "Entrar com Google"}
             </Button>
+            {error && (
+              <div className="text-red-500 text-xs text-center mt-2">{error}</div>
+            )}
             <div className="text-center text-sm mt-4">
               Não tem conta?{" "}
               <Link to="/cadastro" className="text-primary hover:underline">

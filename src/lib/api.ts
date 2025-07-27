@@ -436,7 +436,7 @@ export const makeApiRequest = async (endpoint: string, options: RequestInit = {}
       if (response.status === 401) {
         // Para 401, tentar renovar o token primeiro
         const isCriticalAuthRoute = endpoint.includes('/auth/') || endpoint.includes('/me');
-        
+        let refreshTried = false;
         if (!isCriticalAuthRoute) {
           // Tentar renovar o token
           const refreshToken = localStorage.getItem('refresh_token');
@@ -449,19 +449,15 @@ export const makeApiRequest = async (endpoint: string, options: RequestInit = {}
                 },
                 body: JSON.stringify({ refresh_token: refreshToken })
               });
-              
               if (refreshResponse.ok) {
                 const refreshData = await refreshResponse.json();
-                
                 if (refreshData.success && refreshData.access_token) {
                   // Salvar novo token
                   localStorage.setItem('access_token', refreshData.access_token);
                   localStorage.setItem('expires_at', refreshData.expires_at);
-                  
                   if (refreshData.refresh_token) {
                     localStorage.setItem('refresh_token', refreshData.refresh_token);
                   }
-                  
                   // Refazer a requisição com o novo token
                   const newAuthHeaders = { 'Authorization': `Bearer ${refreshData.access_token}` };
                   const newFinalHeaders = {
@@ -469,12 +465,10 @@ export const makeApiRequest = async (endpoint: string, options: RequestInit = {}
                     ...newAuthHeaders,
                     ...options.headers,
                   };
-                  
                   const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
                     headers: newFinalHeaders,
                     ...options,
                   });
-                  
                   if (retryResponse.ok) {
                     const retryData = await retryResponse.json();
                     return {
@@ -488,21 +482,20 @@ export const makeApiRequest = async (endpoint: string, options: RequestInit = {}
             } catch (refreshError) {
               // Silencioso - não logar erro de renovação
             }
+            refreshTried = true;
           }
         }
-        
         // Se chegou aqui, não conseguiu renovar ou é rota crítica
-        if (isCriticalAuthRoute) {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user_id');
-          localStorage.removeItem('expires_at');
-          localStorage.removeItem('user');
-          localStorage.removeItem('token');
-          localStorage.removeItem('authToken');
-          window.location.href = '/login';
-          throw new Error('Sessão expirada. Faça login novamente.');
-        }
+        // Limpa sessão e força logout SEMPRE para qualquer 401
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_id');
+        localStorage.removeItem('expires_at');
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        localStorage.removeItem('authToken');
+        window.location.href = '/login';
+        throw new Error('Sessão expirada. Faça login novamente.');
       }
       
       if (response.status === 403) {

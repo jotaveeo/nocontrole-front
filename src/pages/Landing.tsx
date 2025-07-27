@@ -15,6 +15,7 @@ import {
   Sun,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import AuthStatus from "@/components/AuthStatus";
 import {
   Card,
   CardContent,
@@ -204,9 +205,9 @@ const Landing = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 transition-colors">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 transition-colors w-full max-w-full overflow-x-hidden">
       {/* Header */}
-      <header className="container mx-auto px-4 py-6 flex justify-between items-center">
+      <header className="container mx-auto px-4 py-6 flex flex-col sm:flex-row justify-between items-center gap-2">
         <div className="flex items-center gap-2">
           <div
             className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"
@@ -234,6 +235,7 @@ const Landing = () => {
           <Button variant="outline" className="hidden md:flex" asChild>
             <Link to="/login">Já tenho conta</Link>
           </Button>
+          <AuthStatus />
         </div>
       </header>
 
@@ -280,15 +282,13 @@ const Landing = () => {
       </section>
 
       {/* Benefits Section */}
-      <section className="container mx-auto px-4 py-16">
+      <section className="container mx-auto px-4 py-16" aria-labelledby="benefits-title">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          <h2 id="benefits-title" className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Por que milhares escolhem o NoControle?
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Recursos pensados para quem quer ter controle total da vida
-            financeira, com praticidade, segurança e visão completa do seu
-            dinheiro.
+            Recursos pensados para quem quer ter controle total da vida financeira, com praticidade, segurança e visão completa do seu dinheiro.
           </p>
         </div>
 
@@ -297,9 +297,12 @@ const Landing = () => {
             <Card
               key={index}
               className="border-0 shadow-lg hover:shadow-xl transition-shadow rounded-2xl bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800"
+              role="region"
+              aria-label={benefit.title}
+              tabIndex={0}
             >
               <CardHeader className="flex flex-col items-center">
-                <div className="mb-4">{benefit.icon}</div>
+                <div className="mb-4" aria-hidden="true">{benefit.icon}</div>
                 <CardTitle className="text-xl text-center dark:text-white">
                   {benefit.title}
                 </CardTitle>
@@ -315,55 +318,55 @@ const Landing = () => {
       </section>
 
       {/* Pricing Section */}
-      <section className="container mx-auto px-16 py-10 bg-white dark:bg-gray-800 rounded-3xl my-16 shadow-sm">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+      <section className="container mx-auto px-4 sm:px-6 md:px-10 lg:px-16 py-10 bg-white dark:bg-gray-800 rounded-3xl my-16 shadow-sm">
+        <div className="text-center mb-12 md:mb-16">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Planos que cabem no seu bolso
           </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-300">
+          <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300">
             Comece grátis e evolua conforme sua necessidade
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8 lg:gap-10">
           {plans.map((plan, index) => (
             <Card
               key={index}
-              className={`relative flex flex-col ${
+              className={`relative flex flex-col h-full ${
                 plan.popular
                   ? "border-primary shadow-xl scale-105"
                   : "border-gray-200 dark:border-gray-700"
-              } dark:bg-gray-900`}
+              } dark:bg-gray-900 transition-transform duration-200`}
             >
               {plan.popular && (
-                <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-primary">
+                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
                   Mais Popular
                 </Badge>
               )}
               <CardHeader className="text-center">
-                <CardTitle className="text-xl dark:text-white">
+                <CardTitle className="text-lg sm:text-xl md:text-2xl dark:text-white">
                   {plan.name}
                 </CardTitle>
-                <div className="py-4">
-                  <span className="text-3xl font-bold dark:text-white">
+                <div className="py-4 flex flex-col items-center">
+                  <span className="text-2xl sm:text-3xl md:text-4xl font-bold dark:text-white">
                     {plan.price}
                   </span>
                   {plan.period && (
-                    <span className="text-gray-500 dark:text-gray-400">
+                    <span className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">
                       {plan.period}
                     </span>
                   )}
                 </div>
-                <CardDescription className="dark:text-gray-300">
+                <CardDescription className="dark:text-gray-300 text-sm sm:text-base">
                   {plan.description}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col flex-1">
-                <ul className="space-y-3 mb-6 flex-1">
+                <ul className="space-y-2 sm:space-y-3 mb-6 flex-1">
                   {plan.features.map((feature, featureIndex) => (
                     <li key={featureIndex} className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      <span className="text-sm dark:text-gray-300">
+                      <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm md:text-base dark:text-gray-300">
                         {feature}
                       </span>
                     </li>
@@ -374,7 +377,7 @@ const Landing = () => {
                     plan.popular
                       ? "bg-primary hover:bg-primary/90"
                       : "variant-outline"
-                  }`}
+                  } text-sm sm:text-base py-3 sm:py-4`}
                   variant={plan.popular ? "default" : "outline"}
                   onClick={async () => {
                     let planPayload;
