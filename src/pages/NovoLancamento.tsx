@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Save, Loader2 } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
+import { NovoLancamentoSkeleton } from "@/components/skeletons";
 
 interface Category {
   id: string;
@@ -51,22 +52,22 @@ const NovoLancamento = () => {
       try {
         console.log("=== DEBUG CATEGORIAS ===");
         console.log("Usuário atual:", user);
-        console.log("Token disponível:", !!localStorage.getItem('token'));
-        
+        console.log("Token disponível:", !!localStorage.getItem("token"));
+
         // Não precisa mais enviar usuario_id - vem do token JWT
         const endpoint = API_ENDPOINTS.CATEGORIES;
-        
+
         console.log("Endpoint completo:", endpoint);
-        
+
         const data = await makeApiRequest(endpoint);
         console.log("Resposta completa da API:", data);
-        
+
         if (data.success) {
           console.log("Todas as categorias recebidas:", data.data);
-          
+
           // 🔧 CORREÇÃO: A API retorna data.data.categorias, não data.data diretamente
           let categoriasList = [];
-          
+
           if (Array.isArray(data.data)) {
             // Se data.data é um array direto
             categoriasList = data.data;
@@ -77,22 +78,31 @@ const NovoLancamento = () => {
             // Fallback para outras estruturas
             categoriasList = data.data.data;
           }
-          
+
           console.log("📋 Categorias extraídas:", categoriasList);
-          console.log("📊 Tipo de categoriasList:", typeof categoriasList, Array.isArray(categoriasList));
-          
+          console.log(
+            "📊 Tipo de categoriasList:",
+            typeof categoriasList,
+            Array.isArray(categoriasList)
+          );
+
           // � NORMALIZAR: Converter campos mapeados pelo backend para o formato esperado pelo frontend
           const categoriasNormalizadas = categoriasList.map((cat: any) => ({
             id: cat.id || cat._id,
-            nome: cat.nome || cat.name || '',
-            icone: cat.icone || cat.icon || '',
-            cor: cat.cor || cat.color || '#000000',
-            tipo: cat.tipo || cat.type || 'despesa',
-            ativo: cat.ativo !== undefined ? cat.ativo : (cat.active !== undefined ? cat.active : true)
+            nome: cat.nome || cat.name || "",
+            icone: cat.icone || cat.icon || "",
+            cor: cat.cor || cat.color || "#000000",
+            tipo: cat.tipo || cat.type || "despesa",
+            ativo:
+              cat.ativo !== undefined
+                ? cat.ativo
+                : cat.active !== undefined
+                ? cat.active
+                : true,
           }));
-          
+
           console.log("✨ Categorias normalizadas:", categoriasNormalizadas);
-          
+
           // �🔍 DEBUG DETALHADO: Mostrar cada categoria normalizada individualmente
           categoriasNormalizadas.forEach((cat, index) => {
             console.log(`🏷️ Categoria Normalizada ${index}:`, {
@@ -101,20 +111,22 @@ const NovoLancamento = () => {
               tipo: cat.tipo,
               icone: cat.icone,
               cor: cat.cor,
-              ativo: cat.ativo
+              ativo: cat.ativo,
             });
           });
-          
+
           // Filtrar apenas por ativo
-          const activeCategories = categoriasNormalizadas.filter((cat: Category) => cat.ativo !== false);
+          const activeCategories = categoriasNormalizadas.filter(
+            (cat: Category) => cat.ativo !== false
+          );
           console.log("✅ Categorias ativas finais:", activeCategories);
-          
+
           setCategories(activeCategories);
         } else {
           console.error("Erro na resposta:", data.message);
         }
       } catch (error) {
-        console.error('Erro ao carregar categorias:', error);
+        console.error("Erro ao carregar categorias:", error);
         toast({
           title: "Erro ao carregar categorias",
           description: "Não foi possível carregar as categorias.",
@@ -149,7 +161,7 @@ const NovoLancamento = () => {
       });
       return;
     }
-    
+
     if (parseFloat(formData.valor) <= 0) {
       toast({
         title: "Valor inválido",
@@ -183,7 +195,7 @@ const NovoLancamento = () => {
       // 🔧 Validação da data antes de formatar
       const dataValida = new Date(formData.data);
       if (isNaN(dataValida.getTime())) {
-        throw new Error('Data inválida');
+        throw new Error("Data inválida");
       }
 
       const transactionData = {
@@ -193,7 +205,7 @@ const NovoLancamento = () => {
         valor: parseFloat(formData.valor),
         descricao: formData.descricao.trim(),
         data: dataValida.toISOString(), // 🔧 Garantir formato ISO correto
-        observacoes: formData.observacoes?.trim() || '', // 🔧 Limpar espaços e valor padrão
+        observacoes: formData.observacoes?.trim() || "", // 🔧 Limpar espaços e valor padrão
       };
 
       console.log("=== DEBUG ENVIO TRANSAÇÃO ===");
@@ -204,94 +216,108 @@ const NovoLancamento = () => {
         valor: transactionData.categoria_id,
         length: transactionData.categoria_id?.length,
         isValid: transactionData.categoria_id?.length === 24,
-        isString: typeof transactionData.categoria_id === 'string'
+        isString: typeof transactionData.categoria_id === "string",
       });
       console.log("- tipo:", {
         valor: transactionData.tipo,
-        isValid: ['receita', 'despesa'].includes(transactionData.tipo),
-        isString: typeof transactionData.tipo === 'string'
+        isValid: ["receita", "despesa"].includes(transactionData.tipo),
+        isString: typeof transactionData.tipo === "string",
       });
       console.log("- valor:", {
         valor: transactionData.valor,
         type: typeof transactionData.valor,
-        isNumber: typeof transactionData.valor === 'number',
+        isNumber: typeof transactionData.valor === "number",
         isPositive: transactionData.valor > 0,
-        isNotNaN: !isNaN(transactionData.valor)
+        isNotNaN: !isNaN(transactionData.valor),
       });
       console.log("- descricao:", {
         valor: transactionData.descricao,
         length: transactionData.descricao?.length,
-        isString: typeof transactionData.descricao === 'string',
-        isNotEmpty: transactionData.descricao?.trim().length > 0
+        isString: typeof transactionData.descricao === "string",
+        isNotEmpty: transactionData.descricao?.trim().length > 0,
       });
       console.log("- data:", {
         valor: transactionData.data,
-        isISO: transactionData.data?.includes('T'),
+        isISO: transactionData.data?.includes("T"),
         isValid: !isNaN(new Date(transactionData.data).getTime()),
-        isString: typeof transactionData.data === 'string'
+        isString: typeof transactionData.data === "string",
       });
       console.log("- observacoes:", {
         valor: transactionData.observacoes,
         type: typeof transactionData.observacoes,
-        isString: typeof transactionData.observacoes === 'string'
+        isString: typeof transactionData.observacoes === "string",
       });
 
       // 🔧 Validação final antes do envio
       const validacoes = {
         categoria_id: transactionData.categoria_id?.length === 24,
-        tipo: ['receita', 'despesa'].includes(transactionData.tipo),
-        valor: typeof transactionData.valor === 'number' && transactionData.valor > 0 && !isNaN(transactionData.valor),
-        descricao: typeof transactionData.descricao === 'string' && transactionData.descricao.trim().length > 0,
-        data: typeof transactionData.data === 'string' && !isNaN(new Date(transactionData.data).getTime()),
-        observacoes: typeof transactionData.observacoes === 'string'
+        tipo: ["receita", "despesa"].includes(transactionData.tipo),
+        valor:
+          typeof transactionData.valor === "number" &&
+          transactionData.valor > 0 &&
+          !isNaN(transactionData.valor),
+        descricao:
+          typeof transactionData.descricao === "string" &&
+          transactionData.descricao.trim().length > 0,
+        data:
+          typeof transactionData.data === "string" &&
+          !isNaN(new Date(transactionData.data).getTime()),
+        observacoes: typeof transactionData.observacoes === "string",
       };
 
       console.log("✅ Resultado das validações:", validacoes);
-      console.log("✅ Todas válidas:", Object.values(validacoes).every(v => v === true));
+      console.log(
+        "✅ Todas válidas:",
+        Object.values(validacoes).every((v) => v === true)
+      );
 
-      if (!Object.values(validacoes).every(v => v === true)) {
+      if (!Object.values(validacoes).every((v) => v === true)) {
         const camposInvalidos = Object.entries(validacoes)
           .filter(([_, valid]) => !valid)
           .map(([campo, _]) => campo);
-        
+
         console.error("❌ Campos inválidos:", camposInvalidos);
         toast({
           title: "Dados inválidos",
-          description: `Campos com problema: ${camposInvalidos.join(', ')}`,
+          description: `Campos com problema: ${camposInvalidos.join(", ")}`,
           variant: "destructive",
         });
         return;
       }
 
       const data = await makeApiRequest(API_ENDPOINTS.TRANSACTIONS, {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify(transactionData),
       });
 
       if (data.success) {
         toast({
           title: "Lançamento criado",
-          description: `${formData.tipo === 'receita' ? 'Receita' : 'Despesa'} de R$ ${parseFloat(formData.valor).toFixed(2)} adicionada com sucesso.`,
+          description: `${
+            formData.tipo === "receita" ? "Receita" : "Despesa"
+          } de R$ ${parseFloat(formData.valor).toFixed(
+            2
+          )} adicionada com sucesso.`,
         });
         navigate("/dashboard");
       } else {
         console.error("❌ Erro na resposta da API:", data);
-        throw new Error(data.message || 'Erro ao criar lançamento');
+        throw new Error(data.message || "Erro ao criar lançamento");
       }
     } catch (error) {
-      console.error('❌ Erro ao criar lançamento:', error);
-      
+      console.error("❌ Erro ao criar lançamento:", error);
+
       // 🔍 Debug adicional para erros 400
-      if (error.message?.includes('400')) {
+      if (error.message?.includes("400")) {
         console.error("🔍 Erro 400 - Possíveis problemas:");
         console.error("1. categoria_id inválido:", formData.categoriaId);
         console.error("2. valor inválido:", formData.valor);
         console.error("3. campos obrigatórios faltando");
       }
-      
+
       toast({
         title: "Erro ao criar lançamento",
-        description: error.message?.includes('400') 
+        description: error.message?.includes("400")
           ? "Dados inválidos. Verifique se todos os campos estão preenchidos corretamente."
           : "Não foi possível criar o lançamento.",
         variant: "destructive",
@@ -302,38 +328,38 @@ const NovoLancamento = () => {
   };
 
   // ✅ FILTRO SIMPLES: Agora que os dados estão normalizados, usar filtro direto
-  const filteredCategories = categories.filter(cat => cat.tipo === formData.tipo);
+  const filteredCategories = categories.filter(
+    (cat) => cat.tipo === formData.tipo
+  );
 
   // 🔍 DEBUG: Verificar categorias filtradas (simplificado)
   console.log("🔍 DEBUG FILTRO CATEGORIAS (NORMALIZADO):");
   console.log("- Tipo selecionado:", formData.tipo);
   console.log("- Total categorias disponíveis:", categories.length);
   console.log("- Categorias filtradas:", filteredCategories.length);
-  console.log("- Categorias disponíveis:", categories.map(c => ({
-    id: c.id,
-    nome: c.nome,
-    tipo: c.tipo,
-    ativo: c.ativo
-  })));
-  console.log("- Categorias filtradas:", filteredCategories.map(c => ({
-    id: c.id,
-    nome: c.nome,
-    tipo: c.tipo,
-    ativo: c.ativo
-  })));
+  console.log(
+    "- Categorias disponíveis:",
+    categories.map((c) => ({
+      id: c.id,
+      nome: c.nome,
+      tipo: c.tipo,
+      ativo: c.ativo,
+    }))
+  );
+  console.log(
+    "- Categorias filtradas:",
+    filteredCategories.map((c) => ({
+      id: c.id,
+      nome: c.nome,
+      tipo: c.tipo,
+      ativo: c.ativo,
+    }))
+  );
 
   if (loadingCategories) {
     return (
       <div className="container mx-auto p-4 max-w-2xl">
-        <div className="flex items-center justify-center min-h-[200px]">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mb-4" />
-            <p className="text-muted-foreground">Carregando categorias...</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Usuário: {user?.id ? `${user.name} (${user.id})` : 'Não logado'}
-            </p>
-          </div>
-        </div>
+        <NovoLancamentoSkeleton />
       </div>
     );
   }
@@ -348,13 +374,15 @@ const NovoLancamento = () => {
 
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold">Novo Lançamento</CardTitle>
+            <CardTitle className="text-2xl font-bold">
+              Novo Lançamento
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Tipo */}
               <div className="space-y-2">
-                <Label htmlFor="tipo">Tipo*</Label>
+                <Label htmlFor="tipo">Tipo</Label>
                 <Select
                   value={formData.tipo}
                   onValueChange={(value: "receita" | "despesa") => {
@@ -390,7 +418,9 @@ const NovoLancamento = () => {
                   step="0.01"
                   min="0"
                   value={formData.valor}
-                  onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, valor: e.target.value })
+                  }
                   placeholder="0,00"
                   required
                 />
@@ -402,7 +432,9 @@ const NovoLancamento = () => {
                 <Input
                   id="descricao"
                   value={formData.descricao}
-                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, descricao: e.target.value })
+                  }
                   placeholder="Descreva o lançamento..."
                   required
                   maxLength={255}
@@ -414,7 +446,9 @@ const NovoLancamento = () => {
                 <Label htmlFor="categoria">Categoria</Label>
                 <Select
                   value={formData.categoriaId}
-                  onValueChange={(value) => setFormData({ ...formData, categoriaId: value })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, categoriaId: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma categoria" />
@@ -428,7 +462,9 @@ const NovoLancamento = () => {
                       filteredCategories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           <span className="flex items-center gap-2">
-                            <span style={{ color: category.cor }}>{category.icone}</span>
+                            <span style={{ color: category.cor }}>
+                              {category.icone}
+                            </span>
                             {category.nome}
                           </span>
                         </SelectItem>
@@ -440,10 +476,11 @@ const NovoLancamento = () => {
                   <div className="text-sm text-muted-foreground p-4 border rounded">
                     <p>Nenhuma categoria de {formData.tipo} encontrada.</p>
                     <p className="mt-2">
-                      <strong>Debug Info:</strong><br/>
-                      - Total categorias: {categories.length}<br/>
-                      - Usuário logado: {user?.id ? 'Sim' : 'Não'}<br/>
-                      - Categorias do tipo {formData.tipo}: {filteredCategories.length}
+                      <strong>Debug Info:</strong>
+                      <br />- Total categorias: {categories.length}
+                      <br />- Usuário logado: {user?.id ? "Sim" : "Não"}
+                      <br />- Categorias do tipo {formData.tipo}:{" "}
+                      {filteredCategories.length}
                     </p>
                     <Button
                       type="button"
@@ -464,7 +501,9 @@ const NovoLancamento = () => {
                   id="data"
                   type="date"
                   value={formData.data}
-                  onChange={(e) => setFormData({ ...formData, data: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, data: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -475,7 +514,9 @@ const NovoLancamento = () => {
                 <Textarea
                   id="observacoes"
                   value={formData.observacoes}
-                  onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, observacoes: e.target.value })
+                  }
                   placeholder="Observações adicionais (opcional)..."
                   rows={3}
                   maxLength={500}
@@ -492,11 +533,7 @@ const NovoLancamento = () => {
                 >
                   Cancelar
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1"
-                >
+                <Button type="submit" disabled={loading} className="flex-1">
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
