@@ -15,7 +15,6 @@ import {
   Sun,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import AuthStatus from "@/components/AuthStatus";
 import {
   Card,
   CardContent,
@@ -225,6 +224,7 @@ const Landing = () => {
             size="sm"
             onClick={toggleTheme}
             className="p-2"
+            title={isDark ? "Modo claro" : "Modo escuro"}
           >
             {isDark ? (
               <Sun className="w-4 h-4" />
@@ -232,10 +232,14 @@ const Landing = () => {
               <Moon className="w-4 h-4" />
             )}
           </Button>
-          <Button variant="outline" className="hidden md:flex" asChild>
-            <Link to="/login">Já tenho conta</Link>
-          </Button>
-          <AuthStatus />
+          <div className="flex gap-2">
+            <Button variant="outline" className="hidden md:flex" asChild>
+              <Link to="/login">Entrar</Link>
+            </Button>
+            <Button variant="default" className="hidden md:flex" asChild>
+              <Link to="/cadastro">Criar conta</Link>
+            </Button>
+          </div>
         </div>
       </header>
 
