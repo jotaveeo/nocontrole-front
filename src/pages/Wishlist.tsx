@@ -2,26 +2,39 @@ import React, { useState, useEffect } from 'react'
 import { PageLayout, StatsGrid, ContentGrid, ResponsiveCard, EmptyState } from '../components/ui/page-layout'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Heart, CheckCircle, X, ShoppingCart, AlertTriangle, Clock, DollarSign, TrendingUp } from 'lucide-react'
+import { Plus, Heart, CheckCircle, X, ShoppingCart, AlertTriangle, Clock, DollarSign, TrendingUp, Loader2 } from 'lucide-react'
 import { API_ENDPOINTS, makeApiRequest } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 
 interface WishlistItem {
-  id: string
-  item: string
-  descricao: string
+  _id: string
+  nome: string
+  descricao?: string
   valor: number
-  valorEconomizado?: number
+  valorEconomizado: number
   prioridade: number
   status: 'desejando' | 'economizando' | 'comprado' | 'cancelado'
-  categoria_id: string
-  dataCriacao: string
+  categoria?: string
+  link?: string
+  imagem?: string
+  dataDesejada?: string
+  dataCompra?: string
+  tags: string[]
+  ativo: boolean
+  createdAt: string
+  updatedAt: string
+  // Virtuals do backend
+  progresso?: number
+  valorRestante?: number
+  metaAtingida?: boolean
+  diasDesejada?: number
+  atrasado?: boolean
 }
 
 interface Category {
@@ -38,12 +51,17 @@ const Wishlist = () => {
   const [editingItem, setEditingItem] = useState<WishlistItem | null>(null)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
-    item: '',
+    nome: '',
     descricao: '',
     valor: '',
-    categoria_id: '',
-    prioridade: 1,
-    status: 'desejando' as 'desejando' | 'economizando' | 'comprado' | 'cancelado'
+    valorEconomizado: '',
+    categoria: 'none',
+    prioridade: 2,
+    status: 'desejando' as 'desejando' | 'economizando' | 'comprado' | 'cancelado',
+    link: '',
+    imagem: '',
+    dataDesejada: '',
+    tags: [] as string[]
   })
 
   const statusColors = {
@@ -68,10 +86,37 @@ const Wishlist = () => {
 
   const fetchWishlistItems = async () => {
     try {
-      const response = await makeApiRequest(API_ENDPOINTS.WISHLIST)
+      // Usar endpoint que já filtra itens ativos no backend
+      const response = await makeApiRequest(`${API_ENDPOINTS.WISHLIST}?ativo=true`)
       if (response.success) {
-        const items = response.data?.data || response.data || []
-        setWishlistItems(items)
+        const rawItems = response.data?.data || response.data || []
+        // Normalizar dados do backend para frontend
+        const items = rawItems.map((item: any) => ({
+          _id: item._id || item.id,
+          nome: item.nome || item.item || '',
+          descricao: item.descricao || '',
+          categoria: item.categoria || item.categoria_id || '',
+          prioridade: item.prioridade || 2,
+          status: item.status || 'desejando',
+          createdAt: item.createdAt || item.dataCriacao || '',
+          updatedAt: item.updatedAt || item.createdAt || '',
+          valorEconomizado: item.valorEconomizado || 0,
+          valor: item.valor || 0,
+          link: item.link || '',
+          imagem: item.imagem || '',
+          dataDesejada: item.dataDesejada || '',
+          dataCompra: item.dataCompra || '',
+          tags: item.tags || [],
+          ativo: item.ativo !== undefined ? item.ativo : true,
+          progresso: item.progresso || 0,
+          valorRestante: item.valorRestante || (item.valor || 0) - (item.valorEconomizado || 0),
+          metaAtingida: item.metaAtingida || false,
+          diasDesejada: item.diasDesejada || null,
+          atrasado: item.atrasado || false
+        }))
+        // Filtrar apenas itens ativos (não deletados)
+        const activeItems = items.filter(item => item.ativo !== false)
+        setWishlistItems(activeItems)
       }
     } catch (error) {
       console.error('Erro ao carregar wishlist:', error)
@@ -100,20 +145,30 @@ const Wishlist = () => {
 
   const resetForm = () => {
     setFormData({
-      item: '',
+      nome: '',
       descricao: '',
       valor: '',
-      categoria_id: '',
-      prioridade: 1,
-      status: 'desejando'
+      valorEconomizado: '',
+      categoria: 'none',
+      prioridade: 2,
+      status: 'desejando',
+      link: '',
+      imagem: '',
+      dataDesejada: '',
+      tags: []
     })
     setEditingItem(null)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value || '' }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.item || !formData.valor || !formData.categoria_id) {
+    if (!formData.nome || !formData.valor) {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos obrigatórios",
@@ -125,17 +180,22 @@ const Wishlist = () => {
     setLoading(true)
     try {
       const itemData = {
-        item: formData.item,
+        nome: formData.nome,
         descricao: formData.descricao,
         valor: parseFloat(formData.valor),
-        categoria_id: formData.categoria_id,
+        valorEconomizado: parseFloat(formData.valorEconomizado) || 0,
+        categoria: formData.categoria === 'none' ? undefined : formData.categoria,
         prioridade: formData.prioridade,
-        status: formData.status
+        status: formData.status,
+        link: formData.link,
+        imagem: formData.imagem,
+        dataDesejada: formData.dataDesejada || undefined,
+        tags: formData.tags
       }
 
       if (editingItem) {
         // Atualizar item existente
-        const response = await makeApiRequest(`${API_ENDPOINTS.WISHLIST}/${editingItem.id}`, {
+        const response = await makeApiRequest(`${API_ENDPOINTS.WISHLIST}/${editingItem._id}`, {
           method: 'PUT',
           body: JSON.stringify(itemData)
         })
@@ -180,12 +240,17 @@ const Wishlist = () => {
   const handleEdit = (item: WishlistItem) => {
     setEditingItem(item)
     setFormData({
-      item: item.item,
-      descricao: item.descricao,
-      valor: item.valor.toString(),
-      categoria_id: item.categoria_id,
-      prioridade: item.prioridade,
-      status: item.status
+      nome: item.nome || '',
+      descricao: item.descricao || '',
+      valor: item.valor ? item.valor.toString() : '',
+      valorEconomizado: item.valorEconomizado ? item.valorEconomizado.toString() : '0',
+      categoria: item.categoria || 'none',
+      prioridade: item.prioridade || 2,
+      status: item.status || 'desejando',
+      link: item.link || '',
+      imagem: item.imagem || '',
+      dataDesejada: item.dataDesejada || '',
+      tags: item.tags || []
     })
     setIsDialogOpen(true)
   }
@@ -194,15 +259,24 @@ const Wishlist = () => {
     if (!confirm('Tem certeza que deseja excluir este item?')) return
 
     try {
-      await makeApiRequest(`${API_ENDPOINTS.WISHLIST}/${id}`, {
+      const response = await makeApiRequest(`${API_ENDPOINTS.WISHLIST}/${id}`, {
         method: 'DELETE'
       })
       
-      toast({
-        title: "Sucesso",
-        description: "Item removido da wishlist"
-      })
-      fetchWishlistItems()
+      if (response.success) {
+        // Remover da lista local imediatamente para feedback visual rápido
+        setWishlistItems(prev => prev.filter(item => item._id !== id))
+        
+        toast({
+          title: "Sucesso",
+          description: "Item removido da wishlist"
+        })
+        
+        // Recarregar da API para garantir sincronização
+        setTimeout(() => fetchWishlistItems(), 100)
+      } else {
+        throw new Error(response.message || 'Erro ao excluir item')
+      }
     } catch (error) {
       console.error('Erro ao excluir item:', error)
       toast({
@@ -274,10 +348,147 @@ const Wishlist = () => {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editingItem ? 'Editar Item' : 'Novo Item na Wishlist'}</DialogTitle>
+                <DialogDescription>
+                  {editingItem 
+                    ? 'Atualize as informações do item da sua wishlist.'
+                    : 'Adicione um novo item à sua wishlist com nome, preço estimado e prioridade.'
+                  }
+                </DialogDescription>
               </DialogHeader>
               {/* ...existing code... */}
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* ...existing code... */}
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome do Item</Label>
+                  <Input
+                    id="nome"
+                    name="nome"
+                    value={formData.nome || ''}
+                    onChange={handleInputChange}
+                    placeholder="Ex: iPhone 15 Pro"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="descricao">Descrição (opcional)</Label>
+                  <Input
+                    id="descricao"
+                    name="descricao"
+                    value={formData.descricao}
+                    onChange={handleInputChange}
+                    placeholder="Detalhes sobre o item"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="valor">Preço Estimado</Label>
+                  <Input
+                    id="valor"
+                    name="valor"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.valor}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="valorEconomizado">Valor Economizado</Label>
+                  <Input
+                    id="valorEconomizado"
+                    name="valorEconomizado"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.valorEconomizado}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="prioridade">Prioridade</Label>
+                  <Select
+                    value={formData.prioridade.toString()}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, prioridade: parseInt(value) }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a prioridade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 - Baixa</SelectItem>
+                      <SelectItem value="2">2 - Média</SelectItem>
+                      <SelectItem value="3">3 - Alta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="categoria">Categoria (opcional)</Label>
+                  <Select
+                    value={formData.categoria}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, categoria: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem categoria</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="link">Link (opcional)</Label>
+                  <Input
+                    id="link"
+                    name="link"
+                    type="url"
+                    value={formData.link || ''}
+                    onChange={handleInputChange}
+                    placeholder="https://exemplo.com/produto"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="dataDesejada">Data Desejada (opcional)</Label>
+                  <Input
+                    id="dataDesejada"
+                    name="dataDesejada"
+                    type="date"
+                    value={formData.dataDesejada || ''}
+                    onChange={handleInputChange}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                    disabled={loading}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {editingItem ? 'Salvando...' : 'Adicionando...'}
+                      </>
+                    ) : (
+                      editingItem ? 'Salvar Alterações' : 'Adicionar Item'
+                    )}
+                  </Button>
+                </div>
               </form>
             </DialogContent>
           </Dialog>
@@ -293,13 +504,13 @@ const Wishlist = () => {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {wishlistItems.map((item) => {
               // Buscar categoria pelo id
-              const categoria = categories.find(cat => cat.id === item.categoria_id);
+              const categoria = categories.find(cat => cat.id === item.categoria);
               return (
-                <Card key={item.id} className="hover:shadow-lg transition-shadow border border-zinc-800 dark:border-zinc-700 bg-zinc-900/80 dark:bg-zinc-900/80 rounded-xl">
+                <Card key={item._id} className="hover:shadow-lg transition-shadow border border-zinc-800 dark:border-zinc-700 bg-zinc-900/80 dark:bg-zinc-900/80 rounded-xl">
                   <CardHeader className="pb-2">
                     <div className="flex flex-col gap-2">
                       <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg font-bold text-white truncate max-w-[70%]">{item.item}</CardTitle>
+                        <CardTitle className="text-lg font-bold text-white truncate max-w-[70%]">{item.nome}</CardTitle>
                         <Badge className={statusColors[item.status]}>{statusLabels[item.status]}</Badge>
                       </div>
                       {categoria && (
@@ -322,9 +533,45 @@ const Wishlist = () => {
                           Prioridade {item.prioridade}
                         </Badge>
                       </div>
-                      {item.valorEconomizado && item.valorEconomizado > 0 && (
-                        <div className="text-sm text-green-500 font-semibold">
-                          Economizado: R$ {item.valorEconomizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {item.valorEconomizado > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-green-500 font-semibold">
+                              Economizado: R$ {item.valorEconomizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-blue-400">
+                              {item.progresso?.toFixed(1) || ((item.valorEconomizado / item.valor) * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                            <div 
+                              className="bg-green-600 h-2 rounded-full" 
+                              style={{ width: `${Math.min(item.progresso || ((item.valorEconomizado / item.valor) * 100), 100)}%` }}
+                            ></div>
+                          </div>
+                          {item.valorRestante > 0 && (
+                            <div className="text-xs text-gray-400">
+                              Restante: R$ {(item.valorRestante || (item.valor - item.valorEconomizado)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {item.dataDesejada && (
+                        <div className="text-xs text-yellow-400">
+                          📅 Desejada para: {new Date(item.dataDesejada).toLocaleDateString('pt-BR')}
+                          {item.atrasado && <span className="text-red-400 ml-2">⚠️ Atrasada</span>}
+                        </div>
+                      )}
+                      {item.link && (
+                        <div className="text-xs">
+                          <a 
+                            href={item.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-blue-400 hover:text-blue-300 underline"
+                          >
+                            🔗 Ver produto
+                          </a>
                         </div>
                       )}
                       <div className="flex justify-end space-x-2 mt-4">
@@ -339,7 +586,7 @@ const Wishlist = () => {
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item._id)}
                           className="rounded-md"
                         >
                           <X className="h-4 w-4" />

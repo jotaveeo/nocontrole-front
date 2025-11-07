@@ -92,10 +92,17 @@ export const API_ENDPOINTS = {
   REPORTS_CATEGORY_ANALYSIS: '/api/reports/category-analysis',
   REPORTS_GOALS_PROGRESS: '/api/reports/goals-progress',
   REPORTS_EXPORT: '/api/reports/export',
+  
+  // Pagamentos
+  PAYMENTS_CREATE_SUBSCRIPTION: '/api/payments/create-subscription',
+  PAYMENTS_CANCEL_SUBSCRIPTION: '/api/payments/cancel-subscription',
+  PAYMENTS_GET_SUBSCRIPTION: '/api/payments/subscription',
+  PAYMENTS_WEBHOOK: '/api/payments/webhook',
 } as const;
 
 // Configuração base da API
-const API_BASE_URL = 'https://nocontrole-back.onrender.com';
+// const API_BASE_URL = 'https://nocontrole-back.onrender.com';
+const API_BASE_URL = 'http://localhost:3000';
 
 // Cliente HTTP com interceptors
 export class ApiClient {

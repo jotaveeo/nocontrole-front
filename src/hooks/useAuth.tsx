@@ -254,7 +254,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const data = await makeApiRequest(API_ENDPOINTS.LOGIN, {
         method: "POST",
-        body: JSON.stringify({ email, password: senha }),
+        body: JSON.stringify({ email, password: senha }), // Backend espera 'password'
       });
 
       if (data.success) {

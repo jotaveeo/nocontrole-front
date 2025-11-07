@@ -18,12 +18,9 @@ const Cadastro = () => {
   const isEmailValid = (email: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  // Validação de senha forte
+  // Validação de senha (alinhada com backend)
   const isPasswordValid = (password: string) =>
-    password.length >= 6 &&
-    /[a-z]/.test(password) &&
-    /[A-Z]/.test(password) &&
-    /[0-9]/.test(password);
+    password.length >= 6; // Backend exige apenas 6+ caracteres
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,9 +34,7 @@ const Cadastro = () => {
       return;
     }
     if (!isPasswordValid(form.senha)) {
-      alert(
-        "A senha deve ter pelo menos 6 caracteres, incluindo uma letra maiúscula, uma minúscula e um número."
-      );
+      alert("A senha deve ter pelo menos 6 caracteres.");
       return;
     }
 
@@ -49,7 +44,7 @@ const Cadastro = () => {
       const data = await makeApiRequest(API_ENDPOINTS.REGISTER, {
         method: 'POST',
         body: JSON.stringify({
-          name: form.nome,
+          name: form.nome,  // Backend espera 'name', salva como 'nome'
           email: form.email,
           password: form.senha,
         }),
@@ -148,7 +143,7 @@ const Cadastro = () => {
                 aria-label="Senha"
               />
               <span className="text-xs text-muted-foreground">
-                Mínimo 6 caracteres, incluindo maiúscula, minúscula e número.
+                Mínimo 6 caracteres.
               </span>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

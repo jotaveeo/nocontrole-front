@@ -27,10 +27,58 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
 
 const Landing = () => {
   const [showDemo, setShowDemo] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [loadingDemo, setLoadingDemo] = useState(false);
+  const { toast } = useToast();
+  
+  // Handler para assinatura de planos - chama o backend
+  const handleSubscribe = async (planType: 'monthly' | 'annual') => {
+    setLoadingPlan(planType);
+    
+    try {
+      toast({
+        title: "⏳ Processando...",
+        description: "Preparando seu checkout de pagamento.",
+      });
+
+      // Chama seu backend que irá processar com a API de pagamento
+      const response = await makeApiRequest(API_ENDPOINTS.PAYMENTS_CREATE_SUBSCRIPTION, {
+        method: 'POST',
+        body: JSON.stringify({ planType }),
+      });
+
+      if (response.success && response.data?.checkoutUrl) {
+        // Redireciona para o checkout da plataforma de pagamento
+        window.location.href = response.data.checkoutUrl;
+      } else if (response.success) {
+        toast({
+          title: "✅ Solicitação enviada!",
+          description: response.message || "Em breve você receberá instruções para pagamento.",
+        });
+      } else {
+        throw new Error(response.message || 'Erro ao criar assinatura');
+      }
+
+    } catch (error) {
+      console.error('❌ Erro ao processar assinatura:', error);
+      toast({
+        title: "Erro no pagamento",
+        description: error instanceof Error 
+          ? error.message 
+          : "Não foi possível processar a assinatura. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
 
   // Verificar tema inicial
   useEffect(() => {
@@ -55,6 +103,21 @@ const Landing = () => {
       document.documentElement.classList.remove("dark");
       localStorage.setItem("theme", "light");
     }
+  };
+
+  // Handler para abrir demonstração
+  const handleShowDemo = () => {
+    setLoadingDemo(true);
+    // Simula carregamento (pode ser útil se no futuro carregar vídeo externo)
+    setTimeout(() => {
+      setShowDemo(true);
+      setLoadingDemo(false);
+    }, 300);
+  };
+
+  // Handler para fechar modal
+  const handleCloseDemo = () => {
+    setShowDemo(false);
   };
 
   const benefits = [
@@ -205,7 +268,7 @@ const Landing = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 transition-colors w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 transition-colors">
       {/* Header */}
       <header className="container mx-auto px-4 py-6 flex flex-col sm:flex-row justify-between items-center gap-2">
         <div className="flex items-center gap-2">
@@ -231,9 +294,6 @@ const Landing = () => {
             ) : (
               <Moon className="w-4 h-4" />
             )}
-          </Button>
-          <Button variant="outline" className="hidden md:flex" asChild>
-            <Link to="/login">Já tenho conta</Link>
           </Button>
           <AuthStatus />
         </div>
@@ -261,7 +321,7 @@ const Landing = () => {
             className="bg-primary hover:bg-primary/90 text-lg px-8"
             asChild
           >
-            <Link to="/Cadastro">
+            <Link to="/cadastro">
               Comece de Graça Agora
               <ArrowRight className="ml-2 w-5 h-5" />
             </Link>
@@ -270,9 +330,17 @@ const Landing = () => {
             variant="outline"
             size="lg"
             className="text-lg px-8"
-            onClick={() => setShowDemo(true)}
+            onClick={handleShowDemo}
+            disabled={loadingDemo}
           >
-            Ver Demonstração
+            {loadingDemo ? (
+              <>
+                <Loader2 className="mr-2 w-5 h-5 animate-spin" />
+                Carregando...
+              </>
+            ) : (
+              "Ver Demonstração"
+            )}
           </Button>
         </div>
 
@@ -379,62 +447,17 @@ const Landing = () => {
                       : "variant-outline"
                   } text-sm sm:text-base py-3 sm:py-4`}
                   variant={plan.popular ? "default" : "outline"}
-                  onClick={async () => {
-                    let planPayload;
-                    if (plan.popular) {
-                      planPayload = {
-                        reason: "Plano Anual",
-                        auto_recurring: {
-                          frequency: 12,
-                          frequency_type: "months",
-                          transaction_amount: 250.8,
-                          currency_id: "BRL",
-                        },
-                        back_url: "https://nocontrole-front.netlify.app/assinatura-sucesso",
-                      };
-                    } else {
-                      planPayload = {
-                        reason: "Plano Mensal",
-                        auto_recurring: {
-                          frequency: 1,
-                          frequency_type: "months",
-                          transaction_amount: 24.9,
-                          currency_id: "BRL",
-                        },
-                        back_url: "https://nocontrole-front.netlify.app/assinatura-sucesso",
-                      };
-                    }
-                    try {
-                      const res = await fetch(
-                        "http://localhost:3000/api/mercadoPagoSubscriptions/plan",
-                        {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                          },
-                          body: JSON.stringify(planPayload),
-                        }
-                      );
-                      const data = await res.json();
-                      if (data.success) {
-                        // Redireciona automaticamente para o checkout Mercado Pago
-                        if (data.data?.init_point) {
-                          window.location.href = data.data.init_point;
-                        } else {
-                          alert(
-                            "Plano criado! ID: " +
-                              (data.data?.id || data.data?.plan?.id || "")
-                          );
-                        }
-                      } else {
-                        alert("Erro ao criar plano!");
-                      }
-                    } catch (err) {
-                      alert("Erro ao conectar ao backend!");
-                    }
-                  }}
+                  onClick={() => handleSubscribe(plan.popular ? 'annual' : 'monthly')}
+                  disabled={loadingPlan !== null}
                 >
-                  {plan.cta}
+                  {loadingPlan === (plan.popular ? 'annual' : 'monthly') ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    plan.cta
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -532,10 +555,10 @@ const Landing = () => {
           className="text-lg px-8 font-semibold shadow-lg hover:scale-105 transition-transform"
           asChild
         >
-          <a href="/cadastro">
+          <Link to="/cadastro">
             Começar Minha Jornada Financeira
             <ArrowRight className="ml-2 w-5 h-5" />
-          </a>
+          </Link>
         </Button>
         <div className="mt-6 text-sm opacity-80 flex flex-col sm:flex-row gap-2 justify-center items-center">
           <span>✅ 7 dias grátis</span>
@@ -674,14 +697,23 @@ const Landing = () => {
       </div>
 
       {showDemo && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-xl w-full relative">
-            <button
-              className="absolute top-2 right-2 text-gray-500 dark:text-gray-400"
-              onClick={() => setShowDemo(false)}
+        <div 
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+          onClick={handleCloseDemo}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-xl w-full relative animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2"
+              onClick={handleCloseDemo}
+              aria-label="Fechar demonstração"
             >
               ✕
-            </button>
+            </Button>
             <h3 className="text-xl font-bold mb-4 dark:text-white">
               Demonstração do NoControle
             </h3>
