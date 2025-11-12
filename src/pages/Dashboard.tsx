@@ -5,17 +5,13 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  CreditCard,
   PlusCircle,
-  AlertTriangle,
   Target,
-  PiggyBank,
   Calendar,
   BarChart3,
-  Loader2,
   ArrowUpRight,
   ArrowDownRight,
-  Eye
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,9 +19,14 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
-import { useFinanceExtendedContext } from "@/contexts/FinanceExtendedContext";
-import { PageLayout, StatsGrid, ContentGrid, ResponsiveCard } from "@/components/ui/page-layout";
+import {
+  PageLayout,
+  StatsGrid,
+  ContentGrid,
+  ResponsiveCard,
+} from "@/components/ui/page-layout";
 import { formatCurrency, safeSum, parseToNumber } from "@/utils/formatters";
+import { DashboardSkeleton } from "@/components/skeletons";
 
 interface Transaction {
   id: string;
@@ -74,29 +75,29 @@ const Dashboard = () => {
       try {
         // Não precisa mais enviar usuario_id - vem do token JWT
         const categoriesEndpoint = API_ENDPOINTS.CATEGORIES;
-        
-        const [transactionsData, categoriesData, goalsData] = await Promise.all([
-          makeApiRequest(API_ENDPOINTS.TRANSACTIONS, { method: 'GET' }),
-          makeApiRequest(categoriesEndpoint, { method: 'GET' }),
-          makeApiRequest(API_ENDPOINTS.GOALS, { method: 'GET' }),
-        ]);
 
-        // A makeApiRequest do api.ts retorna diretamente o JSON da resposta
-        if (transactionsData.success) {
-          // Extrair o array de dados da estrutura paginada
-          const transactions = transactionsData.data?.data || transactionsData.data || [];
-          setTransactions(Array.isArray(transactions) ? transactions : []);
-        }
-        if (categoriesData.success) {
-          const categories = categoriesData.data?.categorias || categoriesData.data || [];
-          setCategories(Array.isArray(categories) ? categories : []);
-        }
-        if (goalsData.success) {
-          const goals = goalsData.data?.data || goalsData.data || [];
-          setGoals(Array.isArray(goals) ? goals : []);
-        }
+        const [transactionsData, categoriesData, goalsData] = await Promise.all(
+          [
+            makeApiRequest(API_ENDPOINTS.TRANSACTIONS, { method: "GET" }),
+            makeApiRequest(categoriesEndpoint, { method: "GET" }),
+            makeApiRequest(API_ENDPOINTS.GOALS, { method: "GET" }),
+          ]
+        );
+
+        // Função auxiliar para extrair dados da resposta da API
+        const extractData = (response: any, dataPath?: string) => {
+          if (!response.success) return [];
+          const data = dataPath
+            ? response.data?.[dataPath]
+            : response.data?.data || response.data;
+          return Array.isArray(data) ? data : [];
+        };
+
+        setTransactions(extractData(transactionsData));
+        setCategories(extractData(categoriesData, "categorias"));
+        setGoals(extractData(goalsData));
       } catch (error) {
-        console.error('Erro ao carregar dados do dashboard:', error);
+        console.error("Erro ao carregar dados do dashboard:", error);
       } finally {
         setLoading(false);
       }
@@ -109,20 +110,26 @@ const Dashboard = () => {
     }
   }, [user?.id]);
 
-  // Calcular saldo
-  const getBalance = () => {
+  // Função auxiliar para calcular totais por tipo
+  const calculateTotalsByType = (transactionsList: Transaction[]) => {
     const income = safeSum(
-      ...transactions
+      ...transactionsList
         .filter((t) => t.tipo === "receita")
-        .map(t => parseToNumber(t.valor))
+        .map((t) => parseToNumber(t.valor))
     );
 
     const expenses = safeSum(
-      ...transactions
+      ...transactionsList
         .filter((t) => t.tipo === "despesa")
-        .map(t => parseToNumber(t.valor))
+        .map((t) => parseToNumber(t.valor))
     );
 
+    return { income, expenses };
+  };
+
+  // Calcular saldo
+  const getBalance = () => {
+    const { income, expenses } = calculateTotalsByType(transactions);
     return income - expenses;
   };
 
@@ -130,70 +137,64 @@ const Dashboard = () => {
   const getCurrentMonthData = () => {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
-    
-    const currentMonthTransactions = transactions.filter(t => {
+
+    const currentMonthTransactions = transactions.filter((t) => {
       const transactionDate = new Date(t.data);
-      return transactionDate.getMonth() === currentMonth && 
-             transactionDate.getFullYear() === currentYear;
+      return (
+        transactionDate.getMonth() === currentMonth &&
+        transactionDate.getFullYear() === currentYear
+      );
     });
 
-    const income = safeSum(
-      ...currentMonthTransactions
-        .filter((t) => t.tipo === "receita")
-        .map(t => parseToNumber(t.valor))
-    );
-
-    const expenses = safeSum(
-      ...currentMonthTransactions
-        .filter((t) => t.tipo === "despesa")
-        .map(t => parseToNumber(t.valor))
-    );
-
-    return { income, expenses };
+    return calculateTotalsByType(currentMonthTransactions);
   };
+
+  // Tipos auxiliares para melhor tipagem
+  type CategoryTotal = {
+    total: number;
+    color: string;
+    icon: string;
+  };
+
+  type CategoryTotals = Record<string, CategoryTotal>;
 
   // Obter despesas por categoria
   const getCategoryExpenses = () => {
+    const defaultColor = "#6B7280";
+    const defaultIcon = "📦";
+    const maxCategories = 5;
+
     const categoryTotals = transactions
       .filter((t) => t.tipo === "despesa")
-      .reduce((acc, transaction) => {
-        const categoryName = transaction.categoria?.nome || 'Sem categoria';
-        const categoryColor = transaction.categoria?.cor || '#6B7280';
-        const categoryIcon = transaction.categoria?.icone || '📦';
-        
+      .reduce<CategoryTotals>((acc, transaction) => {
+        const categoryName = transaction.categoria?.nome || "Sem categoria";
+
         acc[categoryName] = {
-          total: (acc[categoryName]?.total || 0) + parseToNumber(transaction.valor),
-          color: categoryColor,
-          icon: categoryIcon,
+          total:
+            (acc[categoryName]?.total || 0) + parseToNumber(transaction.valor),
+          color: transaction.categoria?.cor || defaultColor,
+          icon: transaction.categoria?.icone || defaultIcon,
         };
         return acc;
-      }, {} as Record<string, { total: number; color: string; icon: string }>);
+      }, {});
 
-    return Object.entries(categoryTotals)
-      .sort(([, a], [, b]) => b.total - a.total)
-      .slice(0, 5);
+    return limitResults(
+      Object.entries(categoryTotals).sort(([, a], [, b]) => b.total - a.total),
+      maxCategories
+    );
   };
+
+  // Funções auxiliares de classificação e filtragem
+  const sortByDate = (a: Transaction, b: Transaction) =>
+    new Date(b.data).getTime() - new Date(a.data).getTime();
+  const limitResults = (array: any[], limit: number) => array.slice(0, limit);
 
   // Obter transações recentes
-  const getRecentTransactions = () => {
-    return transactions
-      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-      .slice(0, 5);
-  };
+  const getRecentTransactions = () =>
+    limitResults(transactions.sort(sortByDate), 5);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto p-4 lg:p-6">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">Carregando dashboard...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const balance = getBalance();
@@ -203,10 +204,9 @@ const Dashboard = () => {
 
   return (
     <PageLayout
-      title={`Olá, ${user?.name || 'Usuário'}! 👋`}
+      title={`Olá, ${user?.name || "Usuário"}! 👋`}
       subtitle="Aqui está um resumo das suas finanças"
       showBackButton={false}
-      loading={loading}
       actions={
         <Button asChild>
           <Link to="/lancamento">
@@ -241,7 +241,7 @@ const Dashboard = () => {
         />
         <SummaryCard
           title="Metas Ativas"
-          value={goals.filter(g => g.ativo).length}
+          value={goals.filter((g) => g.ativo).length}
           icon={<Target className="h-4 w-4" />}
           trend="neutral"
           description="Objetivos em andamento"
@@ -279,19 +279,24 @@ const Dashboard = () => {
 
       <ContentGrid columns={2}>
         {/* Despesas por Categoria */}
-        <ResponsiveCard 
+        <ResponsiveCard
           title="Principais Despesas"
           description="Categorias com maiores gastos"
         >
           {categoryExpenses.length === 0 ? (
             <div className="text-center py-8">
               <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">Nenhuma despesa registrada</p>
+              <p className="text-muted-foreground">
+                Nenhuma despesa registrada
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
               {categoryExpenses.map(([category, data]) => (
-                <div key={category} className="flex items-center justify-between p-3 rounded-lg bg-muted/20">
+                <div
+                  key={category}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/20"
+                >
                   <div className="flex items-center gap-3">
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
@@ -313,38 +318,50 @@ const Dashboard = () => {
         </ResponsiveCard>
 
         {/* Transações Recentes */}
-        <ResponsiveCard 
+        <ResponsiveCard
           title="Transações Recentes"
           description="Últimas movimentações"
         >
           {recentTransactions.length === 0 ? (
             <div className="text-center py-8">
               <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">Nenhuma transação registrada</p>
+              <p className="text-muted-foreground">
+                Nenhuma transação registrada
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
               {recentTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/20">
+                <div
+                  key={transaction.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/20"
+                >
                   <div className="flex items-center gap-3">
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
-                      style={{ backgroundColor: transaction.categoria?.cor + "20" || "#6B728020" }}
+                      style={{
+                        backgroundColor:
+                          transaction.categoria?.cor + "20" || "#6B728020",
+                      }}
                     >
-                      {transaction.categoria?.icone || '📦'}
+                      {transaction.categoria?.icone || "📦"}
                     </div>
                     <div>
                       <p className="font-medium">{transaction.descricao}</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(transaction.data).toLocaleDateString('pt-BR')}
+                        {new Date(transaction.data).toLocaleDateString("pt-BR")}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`font-bold flex items-center gap-1 ${
-                      transaction.tipo === 'receita' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {transaction.tipo === 'receita' ? (
+                    <p
+                      className={`font-bold flex items-center gap-1 ${
+                        transaction.tipo === "receita"
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {transaction.tipo === "receita" ? (
                         <ArrowUpRight className="h-4 w-4" />
                       ) : (
                         <ArrowDownRight className="h-4 w-4" />
@@ -360,31 +377,44 @@ const Dashboard = () => {
       </ContentGrid>
 
       {/* Metas em Andamento */}
-      {goals.filter(g => g.ativo).length > 0 && (
-        <ResponsiveCard 
+      {goals.filter((g) => g.ativo).length > 0 && (
+        <ResponsiveCard
           title="Metas em Andamento"
           description="Objetivos financeiros ativos"
           className="mt-6"
         >
           <ContentGrid columns={2}>
-            {goals.filter(g => g.ativo).slice(0, 4).map((goal) => {
-              const progress = goal.valorAlvo > 0 ? (parseToNumber(goal.valorAtual) / parseToNumber(goal.valorAlvo)) * 100 : 0;
-              return (
-                <div key={goal.id} className="p-4 border rounded-lg bg-background">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium">{goal.nome}</h4>
-                    <Badge variant={progress >= 100 ? "default" : "secondary"}>
-                      {progress.toFixed(0)}%
-                    </Badge>
+            {goals
+              .filter((g) => g.ativo)
+              .slice(0, 4)
+              .map((goal) => {
+                const progress =
+                  goal.valorAlvo > 0
+                    ? (parseToNumber(goal.valorAtual) /
+                        parseToNumber(goal.valorAlvo)) *
+                      100
+                    : 0;
+                return (
+                  <div
+                    key={goal.id}
+                    className="p-4 border rounded-lg bg-background"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium">{goal.nome}</h4>
+                      <Badge
+                        variant={progress >= 100 ? "default" : "secondary"}
+                      >
+                        {progress.toFixed(0)}%
+                      </Badge>
+                    </div>
+                    <Progress value={progress} className="mb-3" />
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>{formatCurrency(goal.valorAtual)}</span>
+                      <span>{formatCurrency(goal.valorAlvo)}</span>
+                    </div>
                   </div>
-                  <Progress value={progress} className="mb-3" />
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>{formatCurrency(goal.valorAtual)}</span>
-                    <span>{formatCurrency(goal.valorAlvo)}</span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </ContentGrid>
         </ResponsiveCard>
       )}
@@ -393,4 +423,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

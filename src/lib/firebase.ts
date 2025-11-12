@@ -1,7 +1,6 @@
 // filepath: src/lib/firebase.ts
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getAnalytics } from "firebase/analytics";
+import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 // ⚠️ IMPORTANTE: Migre essas credenciais para .env em produção
 // Use variáveis de ambiente com prefixo VITE_ para Vite
@@ -34,6 +33,14 @@ if (typeof window !== "undefined" && import.meta.env.PROD) {
 
 export { analytics };
 export const auth = getAuth(app);
+
+// Configurar persistência local
+setPersistence(auth, browserLocalPersistence)
+  .catch((error) => {
+    console.error("Erro ao configurar persistência:", error);
+  });
+
+// Configurar provider do Google
 export const googleProvider = new GoogleAuthProvider();
 
 // Configurações adicionais do Google Provider

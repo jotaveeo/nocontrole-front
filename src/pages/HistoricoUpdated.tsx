@@ -29,6 +29,7 @@ import {
   DollarSign
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { HistoricoSkeleton } from "@/components/skeletons";
 import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
 import { PageLayout, StatsGrid, ResponsiveCard } from "@/components/ui/page-layout";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
@@ -345,11 +346,18 @@ const HistoricoUpdated = () => {
     }
   ];
 
+  if (loading) {
+    return (
+      <div className="container mx-auto p-4 lg:p-6">
+        <HistoricoSkeleton />
+      </div>
+    );
+  }
+
   return (
     <PageLayout
       title="Histórico de Transações"
       subtitle="Visualize e gerencie todas as suas transações"
-      loading={loading}
       actions={
         <Button asChild>
           <Link to="/lancamento">

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Heart, CheckCircle, X, ShoppingCart, AlertTriangle, Clock, DollarSign, TrendingUp, Loader2 } from 'lucide-react'
 import { API_ENDPOINTS, makeApiRequest } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { WishlistPageSkeleton } from '@/components/skeletons'
 
 interface WishlistItem {
   _id: string
@@ -49,7 +50,7 @@ const Wishlist = () => {
   const [categories, setCategories] = useState<Category[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<WishlistItem | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
     nome: '',
     descricao: '',
@@ -120,6 +121,8 @@ const Wishlist = () => {
       }
     } catch (error) {
       console.error('Erro ao carregar wishlist:', error)
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -290,6 +293,10 @@ const Wishlist = () => {
   const totalValue = wishlistItems.reduce((sum, item) => sum + item.valor, 0)
   const savedValue = wishlistItems.reduce((sum, item) => sum + (item.valorEconomizado || 0), 0)
   const boughtItems = wishlistItems.filter(item => item.status === 'comprado').length
+
+  if (loading) {
+    return <WishlistPageSkeleton />
+  }
 
   return (
     <PageLayout title="Wishlist" subtitle="Gerencie seus desejos e economias">

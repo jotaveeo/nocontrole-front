@@ -11,7 +11,11 @@ export function useGoogleAuth() {
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Monitorar mudanças no estado de autenticação
   useEffect(() => {
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
+    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
@@ -39,6 +43,9 @@ export function useGoogleAuth() {
   }, [toast]);
 
   const signIn = async () => {
+    // Previne múltiplas tentativas enquanto carrega
+    if (loading) return;
+    
     setError(null);
     setLoading(true);
     
@@ -85,6 +92,8 @@ export function useGoogleAuth() {
 
   const signOutUser = async () => {
     setError(null);
+    setLoading(true);
+    
     try {
       await signOut(auth);
       localStorage.removeItem('firebase_id_token');
@@ -107,5 +116,5 @@ export function useGoogleAuth() {
     }
   };
 
-  return { user, loading, error, signIn, signOut: signOutUser, idToken, googleAccessToken };
+  return { user, loading, error, signIn, signOut: signOutUser, idToken };
 }

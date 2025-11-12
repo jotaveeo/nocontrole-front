@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { PageLayout, StatsGrid, ContentGrid, ResponsiveCard, EmptyState } from '../components/ui/page-layout'
 import { Button } from "@/components/ui/button"
+import { CreditCardPageSkeleton } from "@/components/skeletons"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -266,10 +267,12 @@ const Cartoes = () => {
 
   if (loading) {
     return (
-      <PageLayout title="Cartões de Crédito" loading={true}>
-        <div />
-      </PageLayout>
-    )
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto p-4 lg:p-6">
+          <CreditCardPageSkeleton />
+        </div>
+      </div>
+    );
   }
 
   return (

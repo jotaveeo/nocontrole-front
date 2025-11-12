@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, safeSum, parseToNumber } from "@/utils/formatters";
+import { MetasPageSkeleton } from "@/components/skeletons";
 import {
   Target,
   Plus,
@@ -354,10 +355,8 @@ const Metas = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-4 max-w-4xl">
-        <div className="flex items-center justify-center min-h-[200px]">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
+      <div className="container mx-auto p-4 lg:p-6">
+        <MetasPageSkeleton />
       </div>
     );
   }

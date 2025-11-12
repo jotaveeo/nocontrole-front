@@ -30,6 +30,7 @@ import { BackButton } from "@/components/BackButton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
+import { DividasSkeleton } from "@/components/skeletons";
 
 const months = [
   "Janeiro",

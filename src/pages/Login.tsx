@@ -120,7 +120,7 @@ const Login = () => {
               onClick={handleGoogleSignIn}
               variant="outline"
               disabled={googleLoading}
-              aria-label="Entrar com Google"
+              aria-label="Fazer login com Google"
             >
               {googleLoading ? (
                 <Loader2 className="animate-spin mr-2 h-4 w-4" />
@@ -131,7 +131,7 @@ const Login = () => {
                   className="h-4 w-4 mr-2"
                 />
               )}
-              {googleLoading ? "Entrando..." : "Entrar com Google"}
+              {googleLoading ? "Entrando..." : "Fazer login com Google"}
             </Button>
             {error && (
               <div className="text-red-500 text-xs text-center mt-2">{error}</div>

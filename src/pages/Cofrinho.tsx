@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
+import { CofrinhoSkeleton } from "@/components/skeletons";
 
 const months = [
   "Janeiro",

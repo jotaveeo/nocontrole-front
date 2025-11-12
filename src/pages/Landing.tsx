@@ -18,7 +18,6 @@ import {
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import AuthStatus from "@/components/AuthStatus";
 import {
   Card,
   CardContent,
@@ -45,22 +44,22 @@ const Landing = () => {
   const [showCreditCardCheckout, setShowCreditCardCheckout] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState<string>('');
+  const [userName, setUserName] = useState<string>("");
   const { toast } = useToast();
   const { loading: paymentLoading, createPayment } = useMercadoPago();
 
   // Verificar se usuário está logado
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    const user = localStorage.getItem('user');
-    
+    const token = localStorage.getItem("access_token");
+    const user = localStorage.getItem("user");
+
     if (token && user) {
       try {
         const userData = JSON.parse(user);
         setIsLoggedIn(true);
-        setUserName(userData.name || userData.username || 'Usuário');
+        setUserName(userData.name || userData.username || "Usuário");
       } catch (error) {
-        console.error('Erro ao parsear dados do usuário:', error);
+        console.error("Erro ao parsear dados do usuário:", error);
         setIsLoggedIn(false);
       }
     } else {
@@ -113,20 +112,20 @@ const Landing = () => {
     // Verificar se o usuário está logado
     if (!isLoggedIn) {
       toast({
-        title: '🔒 Faça login para continuar',
-        description: 'Você será redirecionado para criar sua conta.',
+        title: "🔒 Faça login para continuar",
+        description: "Você será redirecionado para criar sua conta.",
       });
       // Redirecionar para cadastro após 1.5 segundos
       setTimeout(() => {
-        window.location.href = '/cadastro';
+        window.location.href = "/cadastro";
       }, 1500);
       return;
     }
-    
+
     setLoadingPlanId(plan.id); // Define qual plano está carregando
-    
+
     try {
-      if (plan.planType === 'pix') {
+      if (plan.planType === "pix") {
         // Para PIX, abre o modal personalizado
         setSelectedPlan(plan);
         setShowPixCheckout(true);
@@ -138,11 +137,11 @@ const Landing = () => {
         setLoadingPlanId(null); // Remove loading já que abre o modal
       }
     } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
+      console.error("Erro ao processar pagamento:", error);
       toast({
-        title: 'Erro ao processar pagamento',
-        description: 'Por favor, tente novamente.',
-        variant: 'destructive',
+        title: "Erro ao processar pagamento",
+        description: "Por favor, tente novamente.",
+        variant: "destructive",
       });
     } finally {
       setLoadingPlanId(null);
@@ -151,20 +150,20 @@ const Landing = () => {
 
   // Handler para logout
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('user_id');
-    localStorage.removeItem('expires_at');
-    
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("expires_at");
+
     setIsLoggedIn(false);
-    setUserName('');
-    
+    setUserName("");
+
     toast({
-      title: '👋 Até logo!',
-      description: 'Você saiu da sua conta.',
+      title: "👋 Até logo!",
+      description: "Você saiu da sua conta.",
     });
-    
+
     // Recarregar página para atualizar estado
     setTimeout(() => {
       window.location.reload();
@@ -299,6 +298,7 @@ const Landing = () => {
             size="sm"
             onClick={toggleTheme}
             className="p-2"
+            title={isDark ? "Modo claro" : "Modo escuro"}
           >
             {isDark ? (
               <Sun className="w-4 h-4" />
@@ -306,7 +306,7 @@ const Landing = () => {
               <Moon className="w-4 h-4" />
             )}
           </Button>
-          
+
           {/* Auth Section - Dinâmico baseado no login */}
           {isLoggedIn ? (
             <div className="flex items-center gap-2">
@@ -321,8 +321,8 @@ const Landing = () => {
                   Dashboard
                 </Button>
               </Link>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="ghost"
                 onClick={handleLogout}
                 className="gap-1"
@@ -339,9 +339,7 @@ const Landing = () => {
                 </Button>
               </Link>
               <Link to="/cadastro">
-                <Button size="sm">
-                  Criar Conta
-                </Button>
+                <Button size="sm">Criar Conta</Button>
               </Link>
             </div>
           )}
@@ -478,7 +476,11 @@ const Landing = () => {
                 </Badge>
               )}
               {plan.badge && !plan.popular && (
-                <Badge className={`absolute -top-3 left-1/2 -translate-x-1/2 ${plan.badgeColor || 'bg-green-500'}`}>
+                <Badge
+                  className={`absolute -top-3 left-1/2 -translate-x-1/2 ${
+                    plan.badgeColor || "bg-green-500"
+                  }`}
+                >
                   {plan.badge}
                 </Badge>
               )}
@@ -829,7 +831,6 @@ const Landing = () => {
           planType={selectedPlan.planType}
         />
       )}
-
     </div>
   );
 };
