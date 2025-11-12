@@ -89,7 +89,13 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
   const createPixPayment = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.post(MERCADOPAGO_CONFIG.pixEndpoint, {});
+      // Enviar dados necessários para criar o pagamento PIX
+      const response = await apiClient.post(MERCADOPAGO_CONFIG.pixEndpoint, {
+        amount: amount,
+        description: `${planName} - NoControle`,
+        planType: 'pix',
+        deviceId: deviceId, // Device ID para prevenção de fraude
+      });
 
       if (response.success && response.data) {
         setPixData({
