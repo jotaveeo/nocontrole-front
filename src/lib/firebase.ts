@@ -1,6 +1,7 @@
 // filepath: src/lib/firebase.ts
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { getAnalytics } from "firebase/analytics";
 
 // ⚠️ IMPORTANTE: Migre essas credenciais para .env em produção
 // Use variáveis de ambiente com prefixo VITE_ para Vite
