@@ -93,16 +93,17 @@ export const API_ENDPOINTS = {
   REPORTS_GOALS_PROGRESS: '/api/reports/goals-progress',
   REPORTS_EXPORT: '/api/reports/export',
   
-  // Pagamentos
-  PAYMENTS_CREATE_SUBSCRIPTION: '/api/payments/create-subscription',
-  PAYMENTS_CANCEL_SUBSCRIPTION: '/api/payments/cancel-subscription',
-  PAYMENTS_GET_SUBSCRIPTION: '/api/payments/subscription',
-  PAYMENTS_WEBHOOK: '/api/payments/webhook',
+  // Pagamentos / Mercado Pago
+  MERCADOPAGO_PIX_CREATE: '/api/mercadopago/pix/create',
+  MERCADOPAGO_PIX_STATUS: '/api/mercadopago/pix/status',
+  MERCADOPAGO_SUBSCRIPTION_CREATE: '/api/mercadopago/subscription/create',
+  MERCADOPAGO_SUBSCRIPTION_STATUS: '/api/mercadopago/subscription/status',
+  MERCADOPAGO_WEBHOOK: '/api/mercadopago/webhook',
 } as const;
 
 // Configuração base da API
-// const API_BASE_URL = 'https://nocontrole-back.onrender.com';
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'https://nocontrole-back.onrender.com';
+// const API_BASE_URL = 'http://localhost:3000';
 
 // Cliente HTTP com interceptors
 export class ApiClient {

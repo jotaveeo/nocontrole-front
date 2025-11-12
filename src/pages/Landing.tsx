@@ -13,6 +13,9 @@ import {
   CreditCard,
   Moon,
   Sun,
+  Loader2,
+  LogOut,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AuthStatus from "@/components/AuthStatus";
@@ -28,57 +31,42 @@ import { Separator } from "@/components/ui/separator";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
-import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
+import { useMercadoPago } from "@/hooks/useMercadoPago";
+import { getAllPlans } from "@/config/mercadopago";
+import { PixCheckout } from "@/components/PixCheckout";
+import { CreditCardCheckout } from "@/components/CreditCardCheckout";
 
 const Landing = () => {
   const [showDemo, setShowDemo] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [loadingDemo, setLoadingDemo] = useState(false);
+  const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
+  const [showPixCheckout, setShowPixCheckout] = useState(false);
+  const [showCreditCardCheckout, setShowCreditCardCheckout] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState<string>('');
   const { toast } = useToast();
-  
-  // Handler para assinatura de planos - chama o backend
-  const handleSubscribe = async (planType: 'monthly' | 'annual') => {
-    setLoadingPlan(planType);
+  const { loading: paymentLoading, createPayment } = useMercadoPago();
+
+  // Verificar se usuário está logado
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    const user = localStorage.getItem('user');
     
-    try {
-      toast({
-        title: "⏳ Processando...",
-        description: "Preparando seu checkout de pagamento.",
-      });
-
-      // Chama seu backend que irá processar com a API de pagamento
-      const response = await makeApiRequest(API_ENDPOINTS.PAYMENTS_CREATE_SUBSCRIPTION, {
-        method: 'POST',
-        body: JSON.stringify({ planType }),
-      });
-
-      if (response.success && response.data?.checkoutUrl) {
-        // Redireciona para o checkout da plataforma de pagamento
-        window.location.href = response.data.checkoutUrl;
-      } else if (response.success) {
-        toast({
-          title: "✅ Solicitação enviada!",
-          description: response.message || "Em breve você receberá instruções para pagamento.",
-        });
-      } else {
-        throw new Error(response.message || 'Erro ao criar assinatura');
+    if (token && user) {
+      try {
+        const userData = JSON.parse(user);
+        setIsLoggedIn(true);
+        setUserName(userData.name || userData.username || 'Usuário');
+      } catch (error) {
+        console.error('Erro ao parsear dados do usuário:', error);
+        setIsLoggedIn(false);
       }
-
-    } catch (error) {
-      console.error('❌ Erro ao processar assinatura:', error);
-      toast({
-        title: "Erro no pagamento",
-        description: error instanceof Error 
-          ? error.message 
-          : "Não foi possível processar a assinatura. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingPlan(null);
+    } else {
+      setIsLoggedIn(false);
     }
-  };
+  }, []);
 
   // Verificar tema inicial
   useEffect(() => {
@@ -118,6 +106,69 @@ const Landing = () => {
   // Handler para fechar modal
   const handleCloseDemo = () => {
     setShowDemo(false);
+  };
+
+  // Handler para processar pagamento
+  const handlePayment = async (plan: any) => {
+    // Verificar se o usuário está logado
+    if (!isLoggedIn) {
+      toast({
+        title: '🔒 Faça login para continuar',
+        description: 'Você será redirecionado para criar sua conta.',
+      });
+      // Redirecionar para cadastro após 1.5 segundos
+      setTimeout(() => {
+        window.location.href = '/cadastro';
+      }, 1500);
+      return;
+    }
+    
+    setLoadingPlanId(plan.id); // Define qual plano está carregando
+    
+    try {
+      if (plan.planType === 'pix') {
+        // Para PIX, abre o modal personalizado
+        setSelectedPlan(plan);
+        setShowPixCheckout(true);
+        setLoadingPlanId(null); // Remove loading já que abre o modal
+      } else {
+        // Para assinaturas (Mensal/Anual), abre formulário de cartão seguro
+        setSelectedPlan(plan);
+        setShowCreditCardCheckout(true);
+        setLoadingPlanId(null); // Remove loading já que abre o modal
+      }
+    } catch (error) {
+      console.error('Erro ao processar pagamento:', error);
+      toast({
+        title: 'Erro ao processar pagamento',
+        description: 'Por favor, tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingPlanId(null);
+    }
+  };
+
+  // Handler para logout
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('expires_at');
+    
+    setIsLoggedIn(false);
+    setUserName('');
+    
+    toast({
+      title: '👋 Até logo!',
+      description: 'Você saiu da sua conta.',
+    });
+    
+    // Recarregar página para atualizar estado
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
 
   const benefits = [
@@ -177,48 +228,8 @@ const Landing = () => {
     },
   ];
 
-  const plans = [
-    {
-      name: "💎 Plano Mensal",
-      price: "R$ 24,90",
-      period: "/mês - 7 Dias Grátis",
-      description:
-        "✨ Controle total das suas finanças - Cancele quando quiser!",
-      features: [
-        "Relatórios avançados ilimitados",
-        "Metas financeiras ilimitadas",
-        "Wishlist e mural de desejos",
-        "Categorias personalizadas",
-        "Sincronização entre dispositivos",
-        "Gestão de cartões de crédito",
-        "Limites por categoria inteligentes",
-        "Cofrinho digital",
-        "Investimentos centralizados",
-        "Calendário financeiro",
-      ],
-      cta: "Assinar Mensal",
-      popular: false,
-    },
-    {
-      name: "🏆 Plano Anual",
-      price: "12x R$ 20,90",
-      period: "/mês",
-      description:
-        "🔥 MELHOR OFERTA! Economize R$ 48 por ano - Apenas R$ 250,80/ano",
-      features: [
-        "💰 Economize R$ 48 comparado ao mensal",
-        "🔓 Tudo do plano mensal incluído",
-        "👥 Múltiplas contas e usuários",
-        "🤖 Automações e regras inteligentes",
-        "📊 Relatórios avançados e insights com IA",
-        "💬 Suporte VIP 24/7 prioritário",
-        "🔄 Sincronização entre dispositivos",
-        "☁️ Backup automático em nuvem",
-      ],
-      cta: "Assinar Anual",
-      popular: true,
-    },
-  ];
+  // Usar planos do arquivo de configuração do Mercado Pago
+  const plans = getAllPlans();
 
   const testimonials = [
     {
@@ -295,7 +306,45 @@ const Landing = () => {
               <Moon className="w-4 h-4" />
             )}
           </Button>
-          <AuthStatus />
+          
+          {/* Auth Section - Dinâmico baseado no login */}
+          {isLoggedIn ? (
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-primary/10 dark:bg-primary/20 rounded-full">
+                <User className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">
+                  {userName}
+                </span>
+              </div>
+              <Link to="/dashboard">
+                <Button size="sm" variant="outline">
+                  Dashboard
+                </Button>
+              </Link>
+              <Button 
+                size="sm" 
+                variant="ghost"
+                onClick={handleLogout}
+                className="gap-1"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sair</span>
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link to="/login">
+                <Button size="sm" variant="ghost">
+                  Entrar
+                </Button>
+              </Link>
+              <Link to="/cadastro">
+                <Button size="sm">
+                  Criar Conta
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 
@@ -350,13 +399,21 @@ const Landing = () => {
       </section>
 
       {/* Benefits Section */}
-      <section className="container mx-auto px-4 py-16" aria-labelledby="benefits-title">
+      <section
+        className="container mx-auto px-4 py-16"
+        aria-labelledby="benefits-title"
+      >
         <div className="text-center mb-16">
-          <h2 id="benefits-title" className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          <h2
+            id="benefits-title"
+            className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4"
+          >
             Por que milhares escolhem o NoControle?
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Recursos pensados para quem quer ter controle total da vida financeira, com praticidade, segurança e visão completa do seu dinheiro.
+            Recursos pensados para quem quer ter controle total da vida
+            financeira, com praticidade, segurança e visão completa do seu
+            dinheiro.
           </p>
         </div>
 
@@ -370,7 +427,9 @@ const Landing = () => {
               tabIndex={0}
             >
               <CardHeader className="flex flex-col items-center">
-                <div className="mb-4" aria-hidden="true">{benefit.icon}</div>
+                <div className="mb-4" aria-hidden="true">
+                  {benefit.icon}
+                </div>
                 <CardTitle className="text-xl text-center dark:text-white">
                   {benefit.title}
                 </CardTitle>
@@ -391,12 +450,19 @@ const Landing = () => {
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Planos que cabem no seu bolso
           </h2>
-          <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300">
+          <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-4">
             Comece grátis e evolua conforme sua necessidade
           </p>
+          <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            <Shield className="w-4 h-4 text-green-600" />
+            <span>
+              Pagamento 100% seguro via{" "}
+              <span className="font-semibold text-primary">Mercado Pago</span>
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8 lg:gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           {plans.map((plan, index) => (
             <Card
               key={index}
@@ -411,13 +477,18 @@ const Landing = () => {
                   Mais Popular
                 </Badge>
               )}
+              {plan.badge && !plan.popular && (
+                <Badge className={`absolute -top-3 left-1/2 -translate-x-1/2 ${plan.badgeColor || 'bg-green-500'}`}>
+                  {plan.badge}
+                </Badge>
+              )}
               <CardHeader className="text-center">
                 <CardTitle className="text-lg sm:text-xl md:text-2xl dark:text-white">
                   {plan.name}
                 </CardTitle>
                 <div className="py-4 flex flex-col items-center">
                   <span className="text-2xl sm:text-3xl md:text-4xl font-bold dark:text-white">
-                    {plan.price}
+                    {plan.displayPrice}
                   </span>
                   {plan.period && (
                     <span className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">
@@ -447,10 +518,10 @@ const Landing = () => {
                       : "variant-outline"
                   } text-sm sm:text-base py-3 sm:py-4`}
                   variant={plan.popular ? "default" : "outline"}
-                  onClick={() => handleSubscribe(plan.popular ? 'annual' : 'monthly')}
-                  disabled={loadingPlan !== null}
+                  onClick={() => handlePayment(plan)}
+                  disabled={loadingPlanId !== null}
                 >
-                  {loadingPlan === (plan.popular ? 'annual' : 'monthly') ? (
+                  {loadingPlanId === plan.id ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Processando...
@@ -697,11 +768,11 @@ const Landing = () => {
       </div>
 
       {showDemo && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
           onClick={handleCloseDemo}
         >
-          <div 
+          <div
             className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-xl w-full relative animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -731,6 +802,34 @@ const Landing = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Checkout PIX Personalizado */}
+      {showPixCheckout && selectedPlan && (
+        <PixCheckout
+          isOpen={showPixCheckout}
+          onClose={() => {
+            setShowPixCheckout(false);
+            setSelectedPlan(null);
+          }}
+          amount={selectedPlan.price}
+          planName={selectedPlan.name}
+        />
+      )}
+
+      {/* Modal de Checkout com Cartão de Crédito (PCI Compliant) */}
+      {showCreditCardCheckout && selectedPlan && (
+        <CreditCardCheckout
+          isOpen={showCreditCardCheckout}
+          onClose={() => {
+            setShowCreditCardCheckout(false);
+            setSelectedPlan(null);
+          }}
+          amount={selectedPlan.price}
+          planName={selectedPlan.name}
+          planType={selectedPlan.planType}
+        />
+      )}
+
     </div>
   );
 };
