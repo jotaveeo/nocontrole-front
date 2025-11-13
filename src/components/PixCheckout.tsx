@@ -56,18 +56,18 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
       return;
     }
 
-    // Se Device ID é null após tentativas, continuar mesmo assim
-    // O backend pode aceitar sem Device ID ou gerar um
-    if (deviceId === null) {
-      console.log('⚠️ Device ID não foi gerado, mas continuando com criação do PIX');
-      console.log('💡 Backend pode aceitar sem Device ID ou usar alternativa');
+    // Se não tem Device ID ainda, aguardar
+    if (!deviceId) {
+      console.log('⏳ Aguardando Device ID...');
+      return;
     }
 
+    // Tudo pronto para criar PIX
     console.log('✅ Todas as condições atendidas para criar PIX');
     console.log('- Modal aberto:', isOpen);
-    console.log('- Sem dados PIX ainda:', !pixData);
     console.log('- SDK pronto:', sdkReady);
-    console.log('- Device ID:', deviceId || 'não disponível');
+    console.log('- Device ID:', deviceId);
+    console.log('- Tipo:', deviceId.startsWith('fallback_') ? 'Fallback' : 'MercadoPago');
     
     createPixPayment();
   }, [isOpen, pixData, sdkReady, deviceId]);

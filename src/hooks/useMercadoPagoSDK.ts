@@ -51,19 +51,67 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Função para gerar Device ID de fallback baseado no navegador
+  const generateFallbackDeviceId = useCallback((): string => {
+    try {
+      const nav = window.navigator;
+      const screen = window.screen;
+      
+      // Coletar informações do navegador
+      const components = [
+        nav.userAgent,
+        nav.language,
+        screen.colorDepth,
+        screen.width + 'x' + screen.height,
+        new Date().getTimezoneOffset(),
+        !!window.sessionStorage,
+        !!window.localStorage,
+      ];
+      
+      // Gerar um hash simples
+      const str = components.join('|');
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      
+      const deviceId = 'fallback_' + Math.abs(hash).toString(36) + '_' + Date.now().toString(36);
+      logger.info('🔧 Device ID de fallback gerado:', deviceId);
+      return deviceId;
+    } catch (err) {
+      logger.error('❌ Erro ao gerar fallback:', err);
+      return 'fallback_' + Date.now().toString(36);
+    }
+  }, []);
+
   // Função para obter Device Fingerprint dos cookies
   const getDeviceFingerprint = useCallback((): string | null => {
     try {
+      // Método 1: Tentar pegar de todos os cookies do MercadoPago
       const cookies = document.cookie.split(';');
-      const deviceCookie = cookies.find(c => c.trim().startsWith('_mp_device_id='));
+      logger.debug('🍪 Cookies disponíveis:', cookies.length);
       
-      if (deviceCookie) {
-        const deviceValue = deviceCookie.split('=')[1];
-        logger.debug('🔍 Device ID encontrado:', deviceValue);
-        return deviceValue;
+      // Tentar diferentes nomes de cookie
+      const possibleCookieNames = ['_mp_device_id', '_device_id', 'mp_device_id', '_mpcid'];
+      
+      for (const cookieName of possibleCookieNames) {
+        const deviceCookie = cookies.find(c => c.trim().startsWith(cookieName + '='));
+        if (deviceCookie) {
+          const deviceValue = deviceCookie.split('=')[1];
+          logger.info(`✅ Device ID encontrado no cookie ${cookieName}:`, deviceValue);
+          return deviceValue;
+        }
       }
       
-      logger.warn('⚠️ Device ID ainda não gerado');
+      // Método 2: Verificar se há algum cookie do MercadoPago
+      const mpCookies = cookies.filter(c => c.toLowerCase().includes('mp') || c.toLowerCase().includes('mercado'));
+      if (mpCookies.length > 0) {
+        logger.debug('🔍 Cookies do MercadoPago encontrados:', mpCookies);
+      }
+      
+      logger.warn('⚠️ Device ID ainda não gerado nos cookies');
       return null;
     } catch (err) {
       logger.error('❌ Erro ao obter device fingerprint:', err);
@@ -123,9 +171,11 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
             setDeviceId('generating');
             setTimeout(checkDeviceId, 1000);
           } else {
-            logger.warn('⚠️ Device ID não foi gerado após várias tentativas');
-            logger.info('� Continuando sem Device ID - backend pode aceitar ou rejeitar');
-            setDeviceId(null);
+            // Após todas as tentativas, gerar um Device ID de fallback
+            logger.warn('⚠️ Device ID do MercadoPago não foi gerado após 6 tentativas');
+            logger.info('🔧 Gerando Device ID de fallback baseado no navegador');
+            const fallbackId = generateFallbackDeviceId();
+            setDeviceId(fallbackId);
           }
         };
         
