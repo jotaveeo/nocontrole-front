@@ -203,10 +203,12 @@ export class ApiClient {
       // Tentar extrair mensagem de erro do backend
       try {
         const errorData = await response.json();
-        const errorMessage = errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+        apiLogger.error("❌ Backend error response:", errorData);
+        const errorMessage = errorData.message || errorData.error || errorData.msg || `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
       } catch (jsonError) {
         // Se não conseguir fazer parse do JSON, usar status como erro
+        apiLogger.error("❌ Could not parse error response:", jsonError);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     }
@@ -280,6 +282,7 @@ export class ApiClient {
   }
 
   async post<T = any>(endpoint: string, data: any): Promise<ApiResponse<T>> {
+    apiLogger.info(`📤 POST ${endpoint}`, 'Data:', data);
     return this.request<T>(endpoint, {
       method: 'POST',
       body: JSON.stringify(data),

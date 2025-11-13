@@ -89,13 +89,22 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
   const createPixPayment = async () => {
     setLoading(true);
     try {
-      // Enviar dados necessários para criar o pagamento PIX
-      const response = await apiClient.post(MERCADOPAGO_CONFIG.pixEndpoint, {
+      // Preparar dados para enviar
+      const paymentData = {
         amount: amount,
         description: `${planName} - NoControle`,
         planType: 'pix',
-        deviceId: deviceId, // Device ID para prevenção de fraude
-      });
+        deviceId: deviceId || undefined, // Não enviar se não tiver deviceId
+      };
+
+      console.log('📤 Enviando dados para criar PIX:', paymentData);
+      console.log('📍 Endpoint:', MERCADOPAGO_CONFIG.pixEndpoint);
+      console.log('🔑 Device ID disponível:', !!deviceId);
+
+      // Enviar dados necessários para criar o pagamento PIX
+      const response = await apiClient.post(MERCADOPAGO_CONFIG.pixEndpoint, paymentData);
+
+      console.log('📥 Resposta do backend:', response);
 
       if (response.success && response.data) {
         setPixData({
@@ -109,13 +118,16 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
           validityDays: response.data.validityDays || 30,
         });
       } else {
-        throw new Error('Erro ao criar pagamento PIX');
+        const errorMsg = response.error || response.message || 'Erro ao criar pagamento PIX';
+        console.error('❌ Erro na resposta:', errorMsg);
+        throw new Error(errorMsg);
       }
-    } catch (error) {
-      console.error('Erro ao criar pagamento PIX:', error);
+    } catch (error: any) {
+      console.error('❌ Erro ao criar pagamento PIX:', error);
+      const errorMessage = error?.message || error?.toString() || 'Erro desconhecido';
       toast({
         title: 'Erro ao gerar PIX',
-        description: 'Não foi possível gerar o código PIX. Tente novamente.',
+        description: `Não foi possível gerar o código PIX: ${errorMessage}`,
         variant: 'destructive',
       });
       onClose();
