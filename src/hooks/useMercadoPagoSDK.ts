@@ -102,23 +102,35 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
 
         setMp(mercadopago);
 
-        // Aguardar um pouco para o SDK gerar o Device ID
-        setTimeout(() => {
-          const fingerprint = getDeviceFingerprint();
-          if (fingerprint) {
-            setDeviceId(fingerprint);
-            logger.info('✅ Device ID capturado:', fingerprint);
-          } else {
-            setDeviceId('generating'); // Ainda sendo gerado
-            logger.debug('⏳ Device ID sendo gerado...');
-          }
-        }, 1000);
-
         logger.info('✅ MercadoPago SDK V2 inicializado com sucesso');
         logger.debug('🛡️ Prevenção de fraude: ATIVA');
         logger.debug('🌎 Locale: pt-BR');
         
         setIsReady(true);
+
+        // Aguardar Device ID ser gerado (até 3 tentativas)
+        let attempts = 0;
+        const maxAttempts = 6;
+        const checkDeviceId = () => {
+          attempts++;
+          const fingerprint = getDeviceFingerprint();
+          
+          if (fingerprint) {
+            setDeviceId(fingerprint);
+            logger.info('✅ Device ID capturado:', fingerprint);
+          } else if (attempts < maxAttempts) {
+            logger.debug(`⏳ Device ID sendo gerado... (tentativa ${attempts}/${maxAttempts})`);
+            setDeviceId('generating');
+            setTimeout(checkDeviceId, 1000);
+          } else {
+            logger.warn('⚠️ Device ID não foi gerado após várias tentativas');
+            logger.info('� Continuando sem Device ID - backend pode aceitar ou rejeitar');
+            setDeviceId(null);
+          }
+        };
+        
+        // Primeira tentativa após 1 segundo
+        setTimeout(checkDeviceId, 1000);
 
       } catch (err) {
         logger.error('❌ Erro ao inicializar MercadoPago SDK:', err);

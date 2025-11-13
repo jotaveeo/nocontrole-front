@@ -47,10 +47,21 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
 
   // Criar pagamento PIX ao abrir o modal
   useEffect(() => {
-    if (isOpen && !pixData && sdkReady) {
+    if (isOpen && !pixData && sdkReady && deviceId && deviceId !== 'generating') {
+      console.log('✅ Todas as condições atendidas para criar PIX');
+      console.log('- Modal aberto:', isOpen);
+      console.log('- Sem dados PIX ainda:', !pixData);
+      console.log('- SDK pronto:', sdkReady);
+      console.log('- Device ID:', deviceId);
       createPixPayment();
+    } else if (isOpen && !pixData) {
+      console.log('⏳ Aguardando condições para criar PIX:');
+      console.log('- Modal aberto:', isOpen);
+      console.log('- Sem dados PIX ainda:', !pixData);
+      console.log('- SDK pronto:', sdkReady);
+      console.log('- Device ID:', deviceId);
     }
-  }, [isOpen, sdkReady]);
+  }, [isOpen, pixData, sdkReady, deviceId]);
 
   // Countdown timer
   useEffect(() => {
@@ -202,12 +213,21 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
           </DialogDescription>
         </DialogHeader>
 
-        {!sdkReady ? (
+        {!sdkReady || !deviceId || deviceId === 'generating' ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">Inicializando Mercado Pago...</p>
-            {sdkError && (
-              <p className="text-sm text-red-500 mt-2">Erro: {sdkError}</p>
+            {!sdkReady ? (
+              <>
+                <p className="text-gray-600 dark:text-gray-400">Inicializando Mercado Pago...</p>
+                {sdkError && (
+                  <p className="text-sm text-red-500 mt-2">Erro: {sdkError}</p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-gray-600 dark:text-gray-400">Preparando pagamento seguro...</p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">Gerando Device ID para prevenção de fraude</p>
+              </>
             )}
           </div>
         ) : loading ? (
