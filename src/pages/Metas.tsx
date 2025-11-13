@@ -7,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, safeSum, parseToNumber } from "@/utils/formatters";
 import { MetasPageSkeleton } from "@/components/skeletons";
+import { usePlan } from "@/hooks/usePlan";
+import { UpgradeModal } from "@/components/UpgradeModal";
 import {
   Target,
   Plus,
@@ -50,9 +52,11 @@ interface Goal {
 
 const Metas = () => {
   const { toast } = useToast();
+  const { hasReachedLimit } = usePlan();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<string | null>(null);
@@ -104,6 +108,22 @@ const Metas = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ⚠️ VERIFICAÇÃO DE LIMITE DO PLANO FREE (apenas ao criar nova meta)
+    if (!editingGoal) {
+      const limitCheck = hasReachedLimit('goals');
+      if (limitCheck.reached) {
+        toast({
+          title: "Limite atingido",
+          description: `Você atingiu o limite de ${limitCheck.limit} metas do plano FREE. Faça upgrade para criar mais metas.`,
+          variant: "destructive",
+        });
+        setShowUpgradeModal(true);
+        setSubmitting(false);
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
@@ -525,6 +545,13 @@ const Metas = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Upgrade */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        highlightPlan="monthly"
+      />
     </div>
   );
 };

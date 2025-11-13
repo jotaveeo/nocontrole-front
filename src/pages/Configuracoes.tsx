@@ -1,6 +1,7 @@
 import { BackButton } from "@/components/BackButton";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { getUserSettings, saveUserSettings } from "@/utils/userSettings";
 import {
@@ -36,10 +37,11 @@ import {
 // import { CategorizationRules } from "@/components/CategorizationRules";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
-import { Loader2, Download, Upload, Moon, Sun, Monitor } from "lucide-react";
+import { Loader2, Download, Upload, Moon, Sun, Monitor, Crown, ArrowRight } from "lucide-react";
 
 const Configuracoes = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { theme, setTheme, isDark } = useTheme();
   
   // Estados para dados
@@ -335,6 +337,30 @@ const Configuracoes = () => {
             Configurações
           </h1>
         </div>
+
+        {/* Card de Acesso Rápido ao Plano */}
+        <Card className="mb-6 border-primary/20 bg-gradient-to-r from-primary/5 to-blue-600/5">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Crown className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold">Gerenciar Plano e Assinatura</p>
+                <p className="text-sm text-muted-foreground">
+                  Visualize seu plano, uso e faça upgrade
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => navigate('/configuracoes/plano')}
+              variant="default"
+            >
+              Acessar
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
 
         <Tabs defaultValue="geral" className="space-y-3">
           <TabsList className="grid w-full grid-cols-2">

@@ -23,6 +23,7 @@ import NovoLancamento from "./pages/NovoLancamento";
 import Importar from "./pages/Importar";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
+import ConfiguracoesPlano from "./pages/ConfiguracoesPlano";
 import Metas from "./pages/Metas";
 import Calendario from "./pages/Calendario";
 import Limites from "./pages/Limites";
@@ -145,6 +146,14 @@ const App = () => (
                 element={
                   <ProtectedPage>
                     <Configuracoes />
+                  </ProtectedPage>
+                }
+              />
+              <Route
+                path="/configuracoes/plano"
+                element={
+                  <ProtectedPage>
+                    <ConfiguracoesPlano />
                   </ProtectedPage>
                 }
               />

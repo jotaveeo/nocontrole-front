@@ -14,10 +14,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlan } from "@/hooks/usePlan";
 import { Save, Loader2 } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { API_ENDPOINTS, makeApiRequest } from "@/lib/api";
 import { NovoLancamentoSkeleton } from "@/components/skeletons";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 interface Category {
   id: string;
@@ -32,8 +34,10 @@ const NovoLancamento = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { hasReachedLimit } = usePlan();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const [formData, setFormData] = useState({
     tipo: "despesa" as "receita" | "despesa",
@@ -143,6 +147,18 @@ const NovoLancamento = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ⚠️ VERIFICAÇÃO DE LIMITE DO PLANO FREE
+    const limitCheck = hasReachedLimit('transactions');
+    if (limitCheck.reached) {
+      toast({
+        title: "Limite atingido",
+        description: `Você atingiu o limite de ${limitCheck.limit} transações do plano FREE. Faça upgrade para continuar.`,
+        variant: "destructive",
+      });
+      setShowUpgradeModal(true);
+      return;
+    }
 
     if (!user?.id) {
       toast({
@@ -551,6 +567,13 @@ const NovoLancamento = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Upgrade */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        highlightPlan="monthly"
+      />
     </div>
   );
 };

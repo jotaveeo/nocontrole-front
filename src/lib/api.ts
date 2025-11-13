@@ -35,6 +35,11 @@ export const API_ENDPOINTS = {
   USER_DASHBOARD: '/api/users/dashboard',
   USER_SETTINGS: '/api/users/settings',
   
+  // Planos e Assinaturas
+  USER_PLAN: '/api/users/plan',
+  PLAN_UPGRADE: '/api/users/plan/upgrade',
+  PLAN_CANCEL: '/api/users/plan/cancel',
+  
   // Transações
   TRANSACTIONS: '/api/transactions',
   TRANSACTIONS_BULK: '/api/transactions/bulk',
@@ -572,3 +577,251 @@ export const setGlobalLoading = (loading: boolean) => {
   globalLoadingState = loading;
   loadingListeners.forEach(listener => listener(loading));
 };
+
+// ========================================
+// FUNÇÕES DE API PARA GERENCIAMENTO DE PLANOS
+// ========================================
+
+import type { UserPlan, PlanType } from '@/types/plans';
+
+/**
+ * Buscar informações do plano do usuário
+ * @returns UserPlan com informações completas do plano
+ */
+export const getUserPlan = async (): Promise<ApiResponse<UserPlan>> => {
+  try {
+    apiLogger.info("📊 Buscando informações do plano do usuário...");
+    
+    const response = await makeApiRequest(API_ENDPOINTS.USER_PLAN, {
+      method: 'GET',
+    });
+
+    if (response.success && response.data) {
+      apiLogger.success("✅ Plano do usuário carregado com sucesso");
+      return response;
+    }
+
+    apiLogger.warn("⚠️ Resposta da API não contém dados do plano");
+    return {
+      success: false,
+      error: 'Não foi possível carregar informações do plano',
+    };
+  } catch (error) {
+    apiLogger.error("❌ Erro ao buscar plano do usuário:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao buscar plano',
+    };
+  }
+};
+
+/**
+ * Fazer upgrade do plano
+ * @param planType - Tipo de plano para upgrade ('pix', 'monthly', 'annual')
+ * @param paymentData - Dados do pagamento (opcional, dependendo do fluxo)
+ * @returns Resposta da API com dados da assinatura
+ */
+export const upgradePlan = async (
+  planType: PlanType,
+  paymentData?: {
+    payment_method?: 'pix' | 'credit_card';
+    payment_id?: string;
+    [key: string]: any;
+  }
+): Promise<ApiResponse> => {
+  try {
+    apiLogger.info(`🚀 Iniciando upgrade para plano: ${planType}`);
+    
+    const response = await makeApiRequest(API_ENDPOINTS.PLAN_UPGRADE, {
+      method: 'POST',
+      body: JSON.stringify({
+        plan_type: planType,
+        ...paymentData,
+      }),
+    });
+
+    if (response.success) {
+      apiLogger.success(`✅ Upgrade para ${planType} realizado com sucesso`);
+      return response;
+    }
+
+    apiLogger.warn("⚠️ Falha no upgrade do plano:", response.error || response.message);
+    return response;
+  } catch (error) {
+    apiLogger.error("❌ Erro ao fazer upgrade do plano:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao fazer upgrade',
+    };
+  }
+};
+
+/**
+ * Cancelar assinatura do plano
+ * @param reason - Motivo do cancelamento (opcional)
+ * @returns Resposta da API confirmando cancelamento
+ */
+export const cancelPlan = async (reason?: string): Promise<ApiResponse> => {
+  try {
+    apiLogger.info("🚫 Iniciando cancelamento de assinatura...");
+    
+    const response = await makeApiRequest(API_ENDPOINTS.PLAN_CANCEL, {
+      method: 'POST',
+      body: JSON.stringify({
+        reason: reason || 'Não informado',
+      }),
+    });
+
+    if (response.success) {
+      apiLogger.success("✅ Assinatura cancelada com sucesso");
+      return response;
+    }
+
+    apiLogger.warn("⚠️ Falha ao cancelar assinatura:", response.error || response.message);
+    return response;
+  } catch (error) {
+    apiLogger.error("❌ Erro ao cancelar assinatura:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao cancelar plano',
+    };
+  }
+};
+
+/**
+ * Verificar status de pagamento PIX
+ * @param paymentId - ID do pagamento PIX
+ * @returns Status atualizado do pagamento
+ */
+export const checkPixPaymentStatus = async (paymentId: string): Promise<ApiResponse> => {
+  try {
+    apiLogger.info(`🔍 Verificando status do pagamento PIX: ${paymentId}`);
+    
+    const response = await makeApiRequest(
+      `${API_ENDPOINTS.MERCADOPAGO_PIX_STATUS}/${paymentId}`,
+      { method: 'GET' }
+    );
+
+    if (response.success) {
+      apiLogger.success("✅ Status do PIX verificado:", response.data?.status);
+      return response;
+    }
+
+    return response;
+  } catch (error) {
+    apiLogger.error("❌ Erro ao verificar status do PIX:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao verificar status',
+    };
+  }
+};
+
+/**
+ * Verificar status de assinatura
+ * @param subscriptionId - ID da assinatura
+ * @returns Status atualizado da assinatura
+ */
+export const checkSubscriptionStatus = async (subscriptionId: string): Promise<ApiResponse> => {
+  try {
+    apiLogger.info(`🔍 Verificando status da assinatura: ${subscriptionId}`);
+    
+    const response = await makeApiRequest(
+      `${API_ENDPOINTS.MERCADOPAGO_SUBSCRIPTION_STATUS}/${subscriptionId}`,
+      { method: 'GET' }
+    );
+
+    if (response.success) {
+      apiLogger.success("✅ Status da assinatura verificado:", response.data?.status);
+      return response;
+    }
+
+    return response;
+  } catch (error) {
+    apiLogger.error("❌ Erro ao verificar status da assinatura:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao verificar status',
+    };
+  }
+};
+
+/**
+ * Renovar plano PIX expirado
+ * @param planType - Tipo de plano ('pix' geralmente)
+ * @returns Resposta com dados do novo pagamento
+ */
+export const renewPlan = async (planType: PlanType = 'pix'): Promise<ApiResponse> => {
+  try {
+    apiLogger.info(`🔄 Renovando plano ${planType}...`);
+    
+    // Renovação é tratada como um novo upgrade
+    return await upgradePlan(planType);
+  } catch (error) {
+    apiLogger.error("❌ Erro ao renovar plano:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao renovar plano',
+    };
+  }
+};
+
+/**
+ * Verificar se usuário tem permissão para usar recurso
+ * @param feature - Nome do recurso ('advanced_reports', 'export_data', etc)
+ * @returns Se o usuário pode usar o recurso
+ */
+export const checkFeatureAccess = async (feature: string): Promise<boolean> => {
+  try {
+    const planResponse = await getUserPlan();
+    
+    if (!planResponse.success || !planResponse.data) {
+      return false;
+    }
+
+    const { limits } = planResponse.data;
+    
+    // Se limits é 'unlimited', tem acesso a tudo
+    if (limits === 'unlimited') {
+      return true;
+    }
+
+    // Verificar feature específica
+    if (typeof limits === 'object' && feature in limits) {
+      return Boolean(limits[feature as keyof typeof limits]);
+    }
+
+    return false;
+  } catch (error) {
+    apiLogger.error("❌ Erro ao verificar acesso ao recurso:", error);
+    return false;
+  }
+};
+
+/**
+ * Reativar plano cancelado (antes de expirar)
+ * @returns Resposta da API confirmando reativação
+ */
+export const reactivatePlan = async (): Promise<ApiResponse> => {
+  try {
+    apiLogger.info("♻️ Reativando plano cancelado...");
+    
+    const response = await makeApiRequest(`${API_ENDPOINTS.PLAN_CANCEL}/reactivate`, {
+      method: 'POST',
+    });
+
+    if (response.success) {
+      apiLogger.success("✅ Plano reativado com sucesso");
+      return response;
+    }
+
+    return response;
+  } catch (error) {
+    apiLogger.error("❌ Erro ao reativar plano:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao reativar plano',
+    };
+  }
+};
+

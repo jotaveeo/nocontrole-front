@@ -9,8 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
+import { usePlan } from "@/hooks/usePlan"
 import { API_ENDPOINTS, makeApiRequest } from "@/lib/api"
 import { formatCurrency, safeSum, parseToNumber } from "@/utils/formatters"
+import { UpgradeModal } from "@/components/UpgradeModal"
 import {
   CreditCard,
   Calendar,
@@ -37,11 +39,13 @@ interface CreditCard {
 
 const Cartoes = () => {
   const { toast } = useToast()
+  const { hasReachedLimit } = usePlan()
   const [cards, setCards] = useState<CreditCard[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<string | null>(null)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -103,6 +107,22 @@ const Cartoes = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // ⚠️ VERIFICAÇÃO DE LIMITE DO PLANO FREE (apenas ao criar novo cartão)
+    if (!editingCard) {
+      const limitCheck = hasReachedLimit('cards');
+      if (limitCheck.reached) {
+        toast({
+          title: "Limite atingido",
+          description: `Você atingiu o limite de ${limitCheck.limit} cartões do plano FREE. Faça upgrade para adicionar mais cartões.`,
+          variant: "destructive",
+        });
+        setShowUpgradeModal(true);
+        setSubmitting(false);
+        return;
+      }
+    }
+
     setSubmitting(true)
 
     try {
@@ -584,6 +604,13 @@ const Cartoes = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Upgrade */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        highlightPlan="monthly"
+      />
     </PageLayout>
   )
 }

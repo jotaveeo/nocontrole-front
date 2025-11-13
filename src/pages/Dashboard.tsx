@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlan } from "@/hooks/usePlan";
 import { SummaryCard } from "@/components/SummaryCard";
 import {
   TrendingUp,
@@ -12,6 +13,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Eye,
+  Crown,
+  Sparkles,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,10 +68,12 @@ interface Goal {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { plan, loading: planLoading, isFree } = usePlan();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showUpgradeBanner, setShowUpgradeBanner] = useState(true);
 
   // Carregar dados da API
   useEffect(() => {
@@ -216,6 +222,83 @@ const Dashboard = () => {
         </Button>
       }
     >
+      {/* Banner de Upgrade para Plano FREE */}
+      {isFree && showUpgradeBanner && !planLoading && (
+        <Card className="mb-6 border-0 bg-gradient-to-r from-primary via-blue-600 to-purple-600 text-white shadow-lg">
+          <CardContent className="p-6 relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 text-white hover:bg-white/20"
+              onClick={() => setShowUpgradeBanner(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  <h3 className="text-xl font-bold">Desbloqueie Todo o Potencial!</h3>
+                </div>
+                <p className="text-white/90 text-sm">
+                  Você está usando o plano gratuito com recursos limitados. 
+                  Faça upgrade e tenha acesso ilimitado a todas as funcionalidades.
+                </p>
+                
+                {/* Estatísticas de Uso */}
+                {plan?.usage && plan?.limits !== 'unlimited' && (
+                  <div className="flex flex-wrap gap-4 mt-3 text-sm">
+                    <div className="flex items-center gap-1">
+                      <span className="font-semibold">{plan.usage.transactions}/{plan.limits.transactions_per_month}</span>
+                      <span className="text-white/80">transações</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-semibold">{plan.usage.cards}/{plan.limits.cards}</span>
+                      <span className="text-white/80">cartões</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-semibold">{plan.usage.goals}/{plan.limits.goals}</span>
+                      <span className="text-white/80">metas</span>
+                    </div>
+                  </div>
+                )}
+
+                <ul className="mt-3 space-y-1 text-sm text-white/90">
+                  <li className="flex items-center gap-2">
+                    <span className="text-yellow-300">✓</span>
+                    <span>Transações, cartões e metas ilimitados</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-yellow-300">✓</span>
+                    <span>Relatórios avançados e insights com IA</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-yellow-300">✓</span>
+                    <span>Exportação de dados e suporte prioritário</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex flex-col gap-2 min-w-[200px]">
+                <Button 
+                  asChild
+                  className="bg-white text-primary hover:bg-white/90 font-bold shadow-lg"
+                >
+                  <Link to="/#planos">
+                    <Crown className="h-4 w-4 mr-2" />
+                    Fazer Upgrade Agora
+                  </Link>
+                </Button>
+                <div className="text-center text-sm text-white/80">
+                  A partir de <span className="font-bold">R$ 10,00</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Cards de Resumo */}
       <StatsGrid>
         <SummaryCard
