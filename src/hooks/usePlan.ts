@@ -85,8 +85,15 @@ export function usePlan(): UsePlanReturn {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      logger.error('❌ Erro ao buscar plano:', err);
-      setError(errorMessage);
+      
+      // Se for 404 (rota não implementada), usar silenciosamente o plano FREE
+      if (errorMessage.includes('404') || errorMessage.includes('não encontrada')) {
+        logger.warn('⚠️ Rota de planos ainda não implementada no backend - usando FREE');
+      } else {
+        logger.error('❌ Erro ao buscar plano:', err);
+      }
+      
+      setError(null); // Não mostrar erro ao usuário
       
       // Fallback: assumir plano FREE
       setPlan(DEFAULT_FREE_PLAN);

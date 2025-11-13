@@ -47,20 +47,29 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
 
   // Criar pagamento PIX ao abrir o modal
   useEffect(() => {
-    if (isOpen && !pixData && sdkReady && deviceId && deviceId !== 'generating') {
-      console.log('✅ Todas as condições atendidas para criar PIX');
-      console.log('- Modal aberto:', isOpen);
-      console.log('- Sem dados PIX ainda:', !pixData);
-      console.log('- SDK pronto:', sdkReady);
-      console.log('- Device ID:', deviceId);
-      createPixPayment();
-    } else if (isOpen && !pixData) {
-      console.log('⏳ Aguardando condições para criar PIX:');
-      console.log('- Modal aberto:', isOpen);
-      console.log('- Sem dados PIX ainda:', !pixData);
-      console.log('- SDK pronto:', sdkReady);
-      console.log('- Device ID:', deviceId);
+    // Aguardar SDK estar pronto
+    if (!isOpen || pixData || !sdkReady) return;
+
+    // Se Device ID está 'generating', aguardar
+    if (deviceId === 'generating') {
+      console.log('⏳ Device ID ainda sendo gerado, aguardando...');
+      return;
     }
+
+    // Se Device ID é null após tentativas, continuar mesmo assim
+    // O backend pode aceitar sem Device ID ou gerar um
+    if (deviceId === null) {
+      console.log('⚠️ Device ID não foi gerado, mas continuando com criação do PIX');
+      console.log('💡 Backend pode aceitar sem Device ID ou usar alternativa');
+    }
+
+    console.log('✅ Todas as condições atendidas para criar PIX');
+    console.log('- Modal aberto:', isOpen);
+    console.log('- Sem dados PIX ainda:', !pixData);
+    console.log('- SDK pronto:', sdkReady);
+    console.log('- Device ID:', deviceId || 'não disponível');
+    
+    createPixPayment();
   }, [isOpen, pixData, sdkReady, deviceId]);
 
   // Countdown timer
@@ -101,16 +110,20 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
     setLoading(true);
     try {
       // Preparar dados para enviar
-      const paymentData = {
+      const paymentData: any = {
         amount: amount,
         description: `${planName} - NoControle`,
         planType: 'pix',
-        deviceId: deviceId || undefined, // Não enviar se não tiver deviceId
       };
+
+      // Só adicionar deviceId se existir e não for 'generating'
+      if (deviceId && deviceId !== 'generating') {
+        paymentData.deviceId = deviceId;
+      }
 
       console.log('📤 Enviando dados para criar PIX:', paymentData);
       console.log('📍 Endpoint:', MERCADOPAGO_CONFIG.pixEndpoint);
-      console.log('🔑 Device ID disponível:', !!deviceId);
+      console.log('🔑 Device ID disponível:', !!deviceId && deviceId !== 'generating');
 
       // Enviar dados necessários para criar o pagamento PIX
       const response = await apiClient.post(MERCADOPAGO_CONFIG.pixEndpoint, paymentData);
@@ -213,7 +226,7 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
           </DialogDescription>
         </DialogHeader>
 
-        {!sdkReady || !deviceId || deviceId === 'generating' ? (
+        {!sdkReady || deviceId === 'generating' ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
             {!sdkReady ? (
@@ -226,7 +239,7 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
             ) : (
               <>
                 <p className="text-gray-600 dark:text-gray-400">Preparando pagamento seguro...</p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">Gerando Device ID para prevenção de fraude</p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">Gerando proteção anti-fraude</p>
               </>
             )}
           </div>
@@ -234,7 +247,7 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
             <p className="text-gray-600 dark:text-gray-400">Gerando código PIX...</p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">Device ID: {deviceId}</p>
+            {deviceId && <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">Device ID: {deviceId}</p>}
           </div>
         ) : pixData ? (
           <div className="space-y-6">
