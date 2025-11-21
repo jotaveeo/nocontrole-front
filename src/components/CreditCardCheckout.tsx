@@ -72,6 +72,19 @@ export function CreditCardCheckout({
   const securityCodeRef = useRef<HTMLDivElement>(null);
   const cardFormRef = useRef<CardFormInstance | null>(null);
 
+  // Log do Device ID quando o modal abrir
+  useEffect(() => {
+    if (isOpen) {
+      logger.info('🔐 Modal de pagamento aberto');
+      logger.debug('📊 Status atual:', {
+        isReady,
+        hasMP: !!mp,
+        deviceId: deviceId || 'ainda não gerado',
+        sdkError: sdkError || 'nenhum erro',
+      });
+    }
+  }, [isOpen, isReady, mp, deviceId, sdkError]);
+
   // Inicializar Card Form com Secure Fields
   useEffect(() => {
     if (!isOpen || !isReady || !mp) return;
@@ -243,12 +256,28 @@ export function CreditCardCheckout({
       const formData = cardFormRef.current.getCardFormData();
       logger.debug('📋 Dados do formulário:', formData);
 
-      // Verificar Device ID
-      if (!deviceId) {
-        logger.warn('⚠️ Device ID não disponível - pode afetar aprovação');
-      } else {
-        logger.info('✅ Device ID:', deviceId);
+      // ⚠️ VALIDAÇÃO CRÍTICA: Device ID é OBRIGATÓRIO
+      if (!deviceId || deviceId === 'generating') {
+        logger.error('❌ Device ID não disponível ou ainda sendo gerado');
+        toast({
+          title: 'Aguarde',
+          description: 'Validando dados de segurança... Tente novamente em alguns segundos.',
+          variant: 'destructive',
+        });
+        setProcessing(false);
+        return;
       }
+
+      logger.info('✅ Device ID confirmado:', deviceId);
+      logger.debug('📦 Payload completo:', {
+        hasToken: !!token,
+        deviceId,
+        planType,
+        amount,
+        installments: formData.installments || 1,
+        paymentMethodId: formData.paymentMethodId,
+        issuerId: formData.issuerId,
+      });
 
       // Enviar para o backend (apenas o token, não os dados do cartão)
       const response = await apiClient.post('/api/mercadopago/subscription/create', {
@@ -549,12 +578,17 @@ export function CreditCardCheckout({
                 type="submit"
                 className="w-full h-14 text-base font-semibold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
                 size="lg"
-                disabled={!formReady || processing}
+                disabled={!formReady || processing || !deviceId || deviceId === 'generating'}
               >
                 {processing ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Processando...
+                  </>
+                ) : !deviceId || deviceId === 'generating' ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Validando Segurança...
                   </>
                 ) : (
                   <>
@@ -563,6 +597,14 @@ export function CreditCardCheckout({
                   </>
                 )}
               </Button>
+
+              {/* Status do Device ID */}
+              {(!deviceId || deviceId === 'generating') && (
+                <div className="flex items-center justify-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Validando dados de segurança... Aguarde alguns segundos.</span>
+                </div>
+              )}
 
               <p className="text-center text-xs text-gray-500 dark:text-gray-400">
                 Transação protegida • Cancele quando quiser
