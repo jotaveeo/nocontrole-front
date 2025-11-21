@@ -52,7 +52,7 @@ export function CreditCardCheckout({
   amount,
   planName,
   planType,
-}: CreditCardCheckoutProps) {
+}: CreditCardCheckoutProps): JSX.Element {
   const { mp, isReady, deviceId, error: sdkError } = useMercadoPagoSDK();
   const { toast } = useToast();
   
@@ -79,25 +79,40 @@ export function CreditCardCheckout({
     const initializeCardForm = async () => {
       try {
         setLoading(true);
-        logger.info('🔐 Inicializando Secure Fields...');
+        logger.info('🔐 Inicializando Secure Fields (PCI Compliant)...');
 
-        // Configuração do Card Form
+        // ✅ ESTILO DOS SECURE FIELDS (CSS via JS - necessário para iframes)
+        const style = {
+          color: 'rgb(17, 24, 39)', // gray-900
+          fontSize: '16px',
+          fontFamily: 'Inter, -apple-system, system-ui, sans-serif',
+          fontWeight: '400',
+          placeholderColor: 'rgb(156, 163, 175)', // gray-400
+          '::placeholder': {
+            color: 'rgb(156, 163, 175)',
+          },
+        };
+
+        // ✅ CONFIGURAÇÃO DO CARD FORM COM SECURE FIELDS
         const cardForm = mp.cardForm({
           amount: amount.toString(),
-          iframe: true, // Usar iframes seguros
+          iframe: true, // ⚠️ CRÍTICO: Ativa os Secure Fields (iframes isolados)
           form: {
             id: 'mp-card-form',
             cardNumber: {
               id: 'mp-card-number',
               placeholder: 'Número do cartão',
+              style: style, // Aplica estilo CSS
             },
             expirationDate: {
               id: 'mp-expiration-date',
               placeholder: 'MM/AA',
+              style: style,
             },
             securityCode: {
               id: 'mp-security-code',
               placeholder: 'CVV',
+              style: style,
             },
             cardholderName: {
               id: 'form-checkout__cardholderName',
@@ -126,15 +141,17 @@ export function CreditCardCheckout({
           callbacks: {
             onFormMounted: (error: any) => {
               if (error) {
-                logger.error('❌ Erro ao montar formulário:', error);
+                logger.error('❌ Erro ao montar Secure Fields:', error);
                 toast({
-                  title: 'Erro ao carregar formulário',
-                  description: 'Tente novamente mais tarde',
+                  title: 'Erro ao carregar formulário seguro',
+                  description: 'Verifique sua conexão e tente novamente',
                   variant: 'destructive',
                 });
+                setLoading(false);
                 return;
               }
-              logger.info('✅ Secure Fields montados com sucesso');
+              logger.info('✅ Secure Fields montados com sucesso (iframes isolados)');
+              logger.info('🔒 PCI Compliant: Dados do cartão NÃO passam pelo nosso código');
               setFormReady(true);
               setLoading(false);
             },
@@ -144,6 +161,34 @@ export function CreditCardCheckout({
             },
             onFetching: (resource: string) => {
               logger.debug('⏳ Buscando:', resource);
+            },
+            onValidityChange: (error: any, field: string) => {
+              if (error) {
+                logger.warn(`⚠️ Validação falhou em ${field}:`, error);
+              }
+            },
+            onError: (error: any) => {
+              logger.error('❌ Erro no Card Form:', error);
+              // Códigos de erro do MercadoPago:
+              // 205: parameter cardNumber can not be null/empty
+              // 208/209: parameter cardExpiration can not be null/empty
+              // 213: parameter docNumber can not be null/empty
+              // E01: parameter cardNumber invalid
+              const errorMessages: Record<string, string> = {
+                '205': 'Digite o número do cartão',
+                '208': 'Digite a data de validade',
+                '209': 'Digite a data de validade',
+                '212': 'Selecione o tipo de documento',
+                '213': 'Digite o CPF/CNPJ',
+                'E01': 'Número do cartão inválido',
+              };
+              
+              const message = errorMessages[error.code] || error.message || 'Erro ao processar cartão';
+              toast({
+                title: 'Erro de validação',
+                description: message,
+                variant: 'destructive',
+              });
             },
           },
         });
