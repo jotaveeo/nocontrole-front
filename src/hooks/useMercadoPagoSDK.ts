@@ -1,10 +1,17 @@
 /**
  * Hook para gerenciar MercadoPago SDK V2
- * Inicializa o SDK, obtém Device ID e fornece métodos para pagamento
+ * Inicializa o SDK via NPM, obtém Device ID e fornece métodos para pagamento
  * Documentação: https://www.mercadopago.com.br/developers/pt/docs/sdks-library/client-side/javascript
+ * 
+ * ✅ Requisitos do Teste de Qualidade MercadoPago:
+ * 1. Instalação via NPM: @mercadopago/sdk-js
+ * 2. Inicialização com Public Key e locale
+ * 3. Device ID gerado automaticamente pelo SDK
+ * 4. advancedFraudPrevention habilitado
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { loadMercadoPago } from '@mercadopago/sdk-js';
 import { MERCADOPAGO_CONFIG } from '@/config/mercadopago';
 import { Logger } from '@/utils/logger';
 
@@ -122,13 +129,7 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
   useEffect(() => {
     const initializeMercadoPago = async () => {
       try {
-        // Verificar se o SDK foi carregado
-        if (typeof window.MercadoPago === 'undefined') {
-          logger.error('❌ MercadoPago SDK não foi carregado');
-          logger.info('💡 Verifique se o script está no index.html: <script src="https://sdk.mercadopago.com/js/v2"></script>');
-          setError('SDK do Mercado Pago não disponível');
-          return;
-        }
+        logger.info('🚀 Carregando MercadoPago SDK via NPM...');
 
         // Verificar se a Public Key está configurada
         const publicKey = MERCADOPAGO_CONFIG.publicKey;
@@ -139,19 +140,31 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
           return;
         }
 
+        // ✅ REQUISITO 1: Carregar SDK via NPM
+        await loadMercadoPago();
+        logger.info('✅ SDK carregado via @mercadopago/sdk-js');
+
+        // Verificar se o SDK foi carregado corretamente
+        if (typeof window.MercadoPago === 'undefined') {
+          logger.error('❌ MercadoPago SDK não foi carregado após loadMercadoPago()');
+          setError('Falha ao carregar SDK do Mercado Pago');
+          return;
+        }
+
         logger.info('🔑 Inicializando Mercado Pago SDK V2...');
         logger.debug('📍 Public Key:', publicKey.substring(0, 20) + '...');
 
-        // Inicializar o SDK com configurações
+        // ✅ REQUISITO 2: Inicializar com Public Key e configurações
+        // ✅ REQUISITO 3: advancedFraudPrevention = true (gera Device ID automaticamente)
         const mercadopago = new window.MercadoPago(publicKey, {
-          locale: 'pt-BR',
-          advancedFraudPrevention: true, // Habilita prevenção avançada de fraude
+          locale: 'pt-BR', // Define idioma dos placeholders e mensagens
+          advancedFraudPrevention: true, // ⚠️ CRÍTICO: Habilita Device ID automático
         });
 
         setMp(mercadopago);
 
         logger.info('✅ MercadoPago SDK V2 inicializado com sucesso');
-        logger.debug('🛡️ Prevenção de fraude: ATIVA');
+        logger.debug('🛡️ advancedFraudPrevention: HABILITADO (Device ID automático)');
         logger.debug('🌎 Locale: pt-BR');
         
         setIsReady(true);

@@ -30,23 +30,15 @@ import { Separator } from "@/components/ui/separator";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useMercadoPago } from "@/hooks/useMercadoPago";
 import { getAllPlans } from "@/config/mercadopago";
-import { PixCheckout } from "@/components/PixCheckout";
-import { CreditCardCheckout } from "@/components/CreditCardCheckout";
 
 const Landing = () => {
   const [showDemo, setShowDemo] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState(false);
-  const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
-  const [showPixCheckout, setShowPixCheckout] = useState(false);
-  const [showCreditCardCheckout, setShowCreditCardCheckout] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState<string>("");
   const { toast } = useToast();
-  const { loading: paymentLoading, createPayment } = useMercadoPago();
 
   // Verificar se usuário está logado
   useEffect(() => {
@@ -107,7 +99,7 @@ const Landing = () => {
     setShowDemo(false);
   };
 
-  // Handler para processar pagamento
+  // Handler para processar pagamento - redireciona para checkout
   const handlePayment = async (plan: any) => {
     // Verificar se o usuário está logado
     if (!isLoggedIn) {
@@ -122,30 +114,8 @@ const Landing = () => {
       return;
     }
 
-    setLoadingPlanId(plan.id); // Define qual plano está carregando
-
-    try {
-      if (plan.planType === "pix") {
-        // Para PIX, abre o modal personalizado
-        setSelectedPlan(plan);
-        setShowPixCheckout(true);
-        setLoadingPlanId(null); // Remove loading já que abre o modal
-      } else {
-        // Para assinaturas (Mensal/Anual), abre formulário de cartão seguro
-        setSelectedPlan(plan);
-        setShowCreditCardCheckout(true);
-        setLoadingPlanId(null); // Remove loading já que abre o modal
-      }
-    } catch (error) {
-      console.error("Erro ao processar pagamento:", error);
-      toast({
-        title: "Erro ao processar pagamento",
-        description: "Por favor, tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingPlanId(null);
-    }
+    // Redirecionar para checkout com plano pré-selecionado
+    window.location.href = `/checkout?plan=${plan.planType}`;
   };
 
   // Handler para logout
@@ -521,16 +491,8 @@ const Landing = () => {
                   } text-sm sm:text-base py-3 sm:py-4`}
                   variant={plan.popular ? "default" : "outline"}
                   onClick={() => handlePayment(plan)}
-                  disabled={loadingPlanId !== null}
                 >
-                  {loadingPlanId === plan.id ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processando...
-                    </>
-                  ) : (
-                    plan.cta
-                  )}
+                  {plan.cta}
                 </Button>
               </CardContent>
             </Card>
@@ -803,33 +765,6 @@ const Landing = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Modal de Checkout PIX Personalizado */}
-      {showPixCheckout && selectedPlan && (
-        <PixCheckout
-          isOpen={showPixCheckout}
-          onClose={() => {
-            setShowPixCheckout(false);
-            setSelectedPlan(null);
-          }}
-          amount={selectedPlan.price}
-          planName={selectedPlan.name}
-        />
-      )}
-
-      {/* Modal de Checkout com Cartão de Crédito (PCI Compliant) */}
-      {showCreditCardCheckout && selectedPlan && (
-        <CreditCardCheckout
-          isOpen={showCreditCardCheckout}
-          onClose={() => {
-            setShowCreditCardCheckout(false);
-            setSelectedPlan(null);
-          }}
-          amount={selectedPlan.price}
-          planName={selectedPlan.name}
-          planType={selectedPlan.planType}
-        />
       )}
     </div>
   );
