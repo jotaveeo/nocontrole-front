@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,15 @@ export function PlanUsageStats({
   variant = 'default' 
 }: PlanUsageStatsProps) {
   const { plan, loading, isPremium, isFree, hasReachedLimit, upgrade } = usePlan();
+  const navigate = useNavigate();
+
+  const handleUpgrade = () => {
+    if (onUpgrade) {
+      onUpgrade();
+    } else {
+      navigate('/checkout');
+    }
+  };
 
   if (loading) {
     return (
@@ -293,7 +303,7 @@ export function PlanUsageStats({
         {/* Botão de Upgrade */}
         {showUpgradeButton && isFree && (
           <Button
-            onClick={onUpgrade || upgrade}
+            onClick={handleUpgrade}
             className="w-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
           >
             <Crown className="w-4 h-4 mr-2" />

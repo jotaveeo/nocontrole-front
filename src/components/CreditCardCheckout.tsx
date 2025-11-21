@@ -198,6 +198,13 @@ export function CreditCardCheckout({
       const formData = cardFormRef.current.getCardFormData();
       logger.debug('📋 Dados do formulário:', formData);
 
+      // Verificar Device ID
+      if (!deviceId) {
+        logger.warn('⚠️ Device ID não disponível - pode afetar aprovação');
+      } else {
+        logger.info('✅ Device ID:', deviceId);
+      }
+
       // Enviar para o backend (apenas o token, não os dados do cartão)
       const response = await apiClient.post('/api/mercadopago/subscription/create', {
         cardToken: token,
@@ -206,6 +213,7 @@ export function CreditCardCheckout({
         installments: formData.installments || 1,
         paymentMethodId: formData.paymentMethodId,
         issuerId: formData.issuerId,
+        deviceId: deviceId, // ✅ CRÍTICO: Device ID para antifraude
         statement_descriptor: 'NOCONTROLE', // Aparece na fatura do cartão (máx 22 caracteres)
         items: [
           {

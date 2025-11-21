@@ -10,6 +10,7 @@ import { PlanProvider } from "@/contexts/PlanContext";
 import { AuthProvider } from "@/hooks/useAuth";
 import { PlanSelector } from "@/components/PlanSelector";
 import PrivateRoute from "@/components/PrivateRoute";
+import { TokenValidator } from "@/components/TokenValidator";
 
 // Páginas atualizadas com design responsivo
 import Dashboard from "./pages/Dashboard";
@@ -42,6 +43,7 @@ import Termos from "./pages/Termos";
 import LGPD from "./pages/Lgpd";
 import Status from "./pages/Status";
 import GastosFixos from "./pages/GastosFixos";
+import Checkout from "./pages/Checkout";
 
 const queryClient = new QueryClient();
 
@@ -73,11 +75,12 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <PlanProvider>
-          <FinanceExtendedProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+        <TokenValidator>
+          <PlanProvider>
+            <FinanceExtendedProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Landing />} />
@@ -88,6 +91,7 @@ const App = () => (
               <Route path="/termos" element={<Termos />} />
               <Route path="/lgpd" element={<LGPD />} />
               <Route path="/status" element={<Status />} />
+              <Route path="/checkout" element={<Checkout />} />
             <Route path="/assinatura-sucesso" element={<AssinaturaSucesso />} />
 
               {/* Protected Routes with Sidebar */}
@@ -243,6 +247,7 @@ const App = () => (
           </BrowserRouter>
         </FinanceExtendedProvider>
       </PlanProvider>
+      </TokenValidator>
     </AuthProvider>
   </TooltipProvider>
   </QueryClientProvider>

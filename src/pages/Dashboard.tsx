@@ -285,13 +285,13 @@ const Dashboard = () => {
                   asChild
                   className="bg-white text-primary hover:bg-white/90 font-bold shadow-lg"
                 >
-                  <Link to="/#planos">
+                  <Link to="/checkout">
                     <Crown className="h-4 w-4 mr-2" />
                     Fazer Upgrade Agora
                   </Link>
                 </Button>
                 <div className="text-center text-sm text-white/80">
-                  A partir de <span className="font-bold">R$ 10,00</span>
+                  A partir de <span className="font-bold">R$ 19,90</span>
                 </div>
               </div>
             </div>
