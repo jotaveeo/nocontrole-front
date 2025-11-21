@@ -1,13 +1,29 @@
 /**
- * Hook para gerenciar MercadoPago SDK V2
- * Inicializa o SDK via NPM, obtém Device ID e fornece métodos para pagamento
- * Documentação: https://www.mercadopago.com.br/developers/pt/docs/sdks-library/client-side/javascript
+ * 🔐 MercadoPago SDK V2 - Hook Simplificado
  * 
- * ✅ Requisitos do Teste de Qualidade MercadoPago:
- * 1. Instalação via NPM: @mercadopago/sdk-js
- * 2. Inicialização com Public Key e locale
- * 3. Device ID gerado automaticamente pelo SDK
- * 4. advancedFraudPrevention habilitado
+ * @description Hook React para gerenciar o SDK do MercadoPago de forma segura
+ * 
+ * @features
+ * - ✅ Inicialização automática via NPM (@mercadopago/sdk-js)
+ * - ✅ Device ID gerado pelo SDK (advancedFraudPrevention)
+ * - ✅ Validação de Public Key
+ * - ✅ Logs detalhados para debug
+ * - ✅ Retry automático (10 tentativas)
+ * - ❌ SEM fallback - Falha se Device ID não for gerado
+ * 
+ * @usage
+ * ```tsx
+ * const { mp, deviceId, isReady, error } = useMercadoPagoSDK();
+ * 
+ * if (!isReady) return <Loading />;
+ * if (error) return <Error message={error} />;
+ * if (!deviceId) return <Error message="Device ID não gerado" />;
+ * 
+ * // Usar mp.cardForm() para criar formulário seguro
+ * const cardForm = mp.cardForm({ ... });
+ * ```
+ * 
+ * @see https://www.mercadopago.com.br/developers/pt/docs/sdks-library/client-side/javascript
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -17,195 +33,293 @@ import { Logger } from '@/utils/logger';
 
 const logger = new Logger('MercadoPago SDK');
 
-// Tipos do MercadoPago SDK V2
+// ========================================
+// TIPOS TYPESCRIPT
+// ========================================
+
 declare global {
   interface Window {
     MercadoPago: any;
+    MP_DEVICE_SESSION_ID?: string;
   }
 }
 
+/**
+ * Instância do SDK MercadoPago (apenas métodos essenciais)
+ */
 interface MercadoPagoInstance {
-  // Core methods
-  getIdentificationTypes: () => Promise<any[]>;
-  getPaymentMethods: (options: { bin: string }) => Promise<any>;
-  getInstallments: (options: any) => Promise<any>;
-  getIssuers: (options: { paymentMethodId: string; bin: string }) => Promise<any>;
-  
-  // Card Form
-  cardForm: (config: any) => any;
-  
-  // Bricks (UI Components)
-  bricks: () => any;
-  
-  // Utils
-  fields: {
-    create: (type: string, options: any) => any;
-  };
+  cardForm: (config: CardFormConfig) => CardFormInstance;
+  getIdentificationTypes: () => Promise<IdentificationType[]>;
+  getPaymentMethods: (options: { bin: string }) => Promise<PaymentMethod>;
+  getInstallments: (options: InstallmentOptions) => Promise<Installment[]>;
+  getIssuers: (options: { paymentMethodId: string; bin: string }) => Promise<Issuer[]>;
 }
 
+interface CardFormConfig {
+  amount: string;
+  iframe: boolean;
+  form: {
+    id: string;
+    cardNumber: FieldConfig;
+    expirationDate: FieldConfig;
+    securityCode: FieldConfig;
+    cardholderName: FieldConfig;
+    issuer: FieldConfig;
+    installments: FieldConfig;
+    identificationType: FieldConfig;
+    identificationNumber: FieldConfig;
+    cardholderEmail: FieldConfig;
+  };
+  callbacks: CardFormCallbacks;
+}
+
+interface FieldConfig {
+  id: string;
+  placeholder?: string;
+  style?: Record<string, string>;
+}
+
+interface CardFormCallbacks {
+  onFormMounted?: (error: any) => void;
+  onSubmit?: (event: any) => void;
+  onFetching?: (resource: string) => void;
+  onValidityChange?: (error: any, field: string) => void;
+  onError?: (error: any) => void;
+}
+
+interface CardFormInstance {
+  mount: () => void;
+  unmount: () => void;
+  createCardToken: () => Promise<{ token: string }>;
+  getCardFormData: () => CardFormData;
+}
+
+interface CardFormData {
+  installments: number;
+  paymentMethodId: string;
+  issuerId: string;
+  cardholderEmail: string;
+  identificationType: string;
+  identificationNumber: string;
+}
+
+interface IdentificationType {
+  id: string;
+  name: string;
+  type: string;
+  min_length: number;
+  max_length: number;
+}
+
+interface PaymentMethod {
+  id: string;
+  name: string;
+  payment_type_id: string;
+  thumbnail: string;
+}
+
+interface InstallmentOptions {
+  amount: string;
+  locale: string;
+  bin: string;
+  processingMode: string;
+}
+
+interface Installment {
+  installments: number;
+  installment_rate: number;
+  discount_rate: number;
+  labels: string[];
+  min_allowed_amount: number;
+  max_allowed_amount: number;
+  recommended_message: string;
+  installment_amount: number;
+  total_amount: number;
+}
+
+interface Issuer {
+  id: string;
+  name: string;
+  thumbnail: string;
+}
+
+/**
+ * Retorno do hook useMercadoPagoSDK
+ */
 interface UseMercadoPagoSDKReturn {
+  /** Instância do SDK MercadoPago (null se não carregado) */
   mp: MercadoPagoInstance | null;
+  
+  /** Device ID gerado pelo SDK (null se não gerado, 'generating' se em processo) */
   deviceId: string | null;
+  
+  /** SDK está pronto para uso */
   isReady: boolean;
+  
+  /** Mensagem de erro (se houver) */
   error: string | null;
+  
+  /** Public Key configurada */
   publicKey: string;
+  
+  /** Função para buscar Device ID manualmente */
   getDeviceFingerprint: () => string | null;
 }
 
+// ========================================
+// HOOK PRINCIPAL
+// ========================================
+
+/**
+ * Hook para gerenciar o SDK MercadoPago V2
+ * 
+ * @returns {UseMercadoPagoSDKReturn} Objeto com mp, deviceId, isReady, error, publicKey
+ */
 export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
   const [mp, setMp] = useState<MercadoPagoInstance | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ❌ FALLBACK REMOVIDO - Device ID deve ser gerado pelo SDK ou falhar
-
-  // Função para obter Device ID do SDK do MercadoPago
+  // ========================================
+  // FUNÇÃO: Buscar Device ID
+  // ========================================
+  
+  /**
+   * Busca o Device ID gerado pelo SDK do MercadoPago
+   * 
+   * @returns Device ID (string) ou null se não gerado
+   */
   const getDeviceFingerprint = useCallback((): string | null => {
     try {
-      // ✅ MÉTODO CORRETO: Buscar no window.MP_DEVICE_SESSION_ID
-      // O SDK do MercadoPago armazena o Device ID nessa variável global
-      const deviceId = (window as any).MP_DEVICE_SESSION_ID;
+      // Método 1: Buscar em window.MP_DEVICE_SESSION_ID (padrão do SDK)
+      const deviceIdFromWindow = window.MP_DEVICE_SESSION_ID;
       
-      if (deviceId) {
-        // Validar se não é um fallback fake
-        if (deviceId.startsWith('fallback_')) {
-          logger.warn('⚠️ Device ID é fallback (não foi gerado pelo SDK):', deviceId);
-          return null;
-        }
-        
-        logger.info('✅ Device ID real encontrado:', deviceId);
-        return deviceId;
+      if (deviceIdFromWindow) {
+        logger.debug('✅ Device ID encontrado em window.MP_DEVICE_SESSION_ID:', deviceIdFromWindow);
+        return deviceIdFromWindow;
       }
       
-      // Método alternativo: Tentar pegar dos cookies como fallback
+      // Método 2: Buscar em cookies (fallback)
       const cookies = document.cookie.split(';');
-      const possibleCookieNames = ['_mp_device_id', 'mp_device_id', '_mpcid'];
+      const cookieNames = ['_mp_device_id', 'mp_device_id', '_mpcid'];
       
-      for (const cookieName of possibleCookieNames) {
-        const deviceCookie = cookies.find(c => c.trim().startsWith(cookieName + '='));
-        if (deviceCookie) {
-          const deviceValue = deviceCookie.split('=')[1];
-          if (!deviceValue.startsWith('fallback_')) {
-            logger.info(`✅ Device ID encontrado no cookie ${cookieName}:`, deviceValue);
-            return deviceValue;
+      for (const name of cookieNames) {
+        const cookie = cookies.find(c => c.trim().startsWith(`${name}=`));
+        if (cookie) {
+          const value = cookie.split('=')[1]?.trim();
+          if (value) {
+            logger.debug(`✅ Device ID encontrado no cookie ${name}:`, value);
+            return value;
           }
         }
       }
       
-      logger.debug('⏳ Device ID ainda não gerado pelo SDK');
       return null;
     } catch (err) {
-      logger.error('❌ Erro ao obter device fingerprint:', err);
+      logger.error('❌ Erro ao buscar Device ID:', err);
       return null;
     }
   }, []);
 
+  // ========================================
+  // EFEITO: Inicializar SDK
+  // ========================================
+  
   useEffect(() => {
+    let isMounted = true;
+    
     const initializeMercadoPago = async () => {
       try {
-        logger.info('🚀 Carregando MercadoPago SDK via NPM...');
-
-        // Verificar se a Public Key está configurada
+        // Validar Public Key
         const publicKey = MERCADOPAGO_CONFIG.publicKey;
         if (!publicKey || publicKey.includes('YOUR-PUBLIC-KEY')) {
-          logger.error('❌ Public Key do Mercado Pago não configurada');
-          logger.info('💡 Configure VITE_MERCADOPAGO_PUBLIC_KEY no arquivo .env');
-          setError('Chave pública não configurada');
+          const errorMsg = 'Public Key não configurada. Configure VITE_MERCADOPAGO_PUBLIC_KEY no .env';
+          logger.error('❌', errorMsg);
+          setError(errorMsg);
           return;
         }
 
-        // ✅ REQUISITO 1: Carregar SDK via NPM
+        logger.info('🚀 Inicializando MercadoPago SDK V2');
+        logger.debug('🔑 Public Key:', publicKey.substring(0, 20) + '...');
+
+        // Carregar SDK
         await loadMercadoPago();
-        logger.info('✅ SDK carregado via @mercadopago/sdk-js');
-
-        // Verificar se o SDK foi carregado corretamente
-        if (typeof window.MercadoPago === 'undefined') {
-          logger.error('❌ MercadoPago SDK não foi carregado após loadMercadoPago()');
-          setError('Falha ao carregar SDK do Mercado Pago');
-          return;
+        
+        if (!window.MercadoPago) {
+          throw new Error('SDK não carregou corretamente');
         }
 
-        logger.info('🔑 Inicializando Mercado Pago SDK V2...');
-        logger.debug('📍 Public Key:', publicKey.substring(0, 20) + '...');
+        logger.info('✅ SDK carregado');
 
-        // ✅ REQUISITO 2: Inicializar com Public Key e configurações
-        // ✅ REQUISITO 3: advancedFraudPrevention = true (gera Device ID automaticamente)
+        // Inicializar SDK com advancedFraudPrevention
         const mercadopago = new window.MercadoPago(publicKey, {
-          locale: 'pt-BR', // Define idioma dos placeholders e mensagens
-          advancedFraudPrevention: true, // ⚠️ CRÍTICO: Habilita Device ID automático
+          locale: 'pt-BR',
+          advancedFraudPrevention: true, // Gera Device ID automaticamente
         });
 
+        if (!isMounted) return;
+        
         setMp(mercadopago);
-
-        logger.info('✅ MercadoPago SDK V2 inicializado com sucesso');
-        logger.debug('🛡️ advancedFraudPrevention: HABILITADO (Device ID automático)');
-        logger.debug('🌎 Locale: pt-BR');
-        
         setIsReady(true);
+        
+        logger.info('✅ SDK inicializado (advancedFraudPrevention: true)');
+        logger.info('⏳ Aguardando Device ID...');
 
-        // ⚠️ CRÍTICO: Aguardar Device ID ser gerado pelo SDK
-        // O SDK precisa de tempo para gerar o Device ID real
-        logger.info('⏳ Aguardando geração do Device ID pelo SDK...');
-        
+        // Polling para Device ID (10 tentativas = 12 segundos)
         let attempts = 0;
-        const maxAttempts = 10; // Aumentado para 10 tentativas (10 segundos total)
+        const maxAttempts = 10;
         
-        const checkDeviceId = async () => {
+        const pollDeviceId = () => {
+          if (!isMounted) return;
+          
           attempts++;
+          const id = getDeviceFingerprint();
           
-          // Verificar window.MP_DEVICE_SESSION_ID
-          const fingerprint = getDeviceFingerprint();
-          
-          if (fingerprint && !fingerprint.startsWith('fallback_')) {
-            setDeviceId(fingerprint);
-            logger.info('✅ Device ID REAL capturado pelo SDK:', fingerprint);
-            logger.info('🛡️ Pagamentos agora terão maior taxa de aprovação');
+          if (id) {
+            setDeviceId(id);
+            logger.info('✅ Device ID capturado:', id);
             return;
           }
           
           if (attempts < maxAttempts) {
-            logger.debug(`⏳ Tentativa ${attempts}/${maxAttempts} - Aguardando SDK gerar Device ID...`);
             setDeviceId('generating');
-            setTimeout(checkDeviceId, 1000);
+            setTimeout(pollDeviceId, 1000);
           } else {
-            // ❌ FALHA TOTAL: Device ID não foi gerado
-            logger.error('❌ FALHA CRÍTICA: Device ID do MercadoPago NÃO foi gerado após 10 segundos');
-            logger.error('⚠️ Pagamentos NÃO PODEM ser processados sem Device ID real');
-            logger.error('💡 Possíveis causas:');
-            logger.error('   - Public Key incorreta ou não configurada');
-            logger.error('   - Bloqueador de anúncios está bloqueando o SDK');
-            logger.error('   - Problemas de rede/firewall');
-            logger.error('   - SDK do MercadoPago não carregou corretamente');
-            logger.error('🔧 AÇÕES:');
-            logger.error('   1. Verifique a Public Key em MERCADOPAGO_CONFIG');
-            logger.error('   2. Desabilite bloqueadores de anúncios');
-            logger.error('   3. Recarregue a página');
-            logger.error('   4. Teste em outro navegador');
-            
             setDeviceId(null);
-            setError('Sistema de segurança não inicializado. Recarregue a página ou entre em contato com o suporte.');
+            const errorMsg = 'Device ID não foi gerado. Recarregue a página.';
+            setError(errorMsg);
+            logger.error('❌ FALHA:', errorMsg);
+            logger.error('💡 Causas possíveis: Public Key inválida, bloqueador de anúncios, problemas de rede');
           }
         };
         
-        // Aguardar 2 segundos antes da primeira tentativa (SDK precisa de tempo)
-        setTimeout(checkDeviceId, 2000);
+        setTimeout(pollDeviceId, 2000);
 
       } catch (err) {
-        logger.error('❌ Erro ao inicializar MercadoPago SDK:', err);
-        setError(err instanceof Error ? err.message : 'Erro desconhecido');
+        if (!isMounted) return;
+        
+        const errorMsg = err instanceof Error ? err.message : 'Erro ao inicializar SDK';
+        logger.error('❌ Erro:', errorMsg);
+        setError(errorMsg);
       }
     };
 
-    // Aguardar carregamento completo do DOM
     if (document.readyState === 'complete') {
       initializeMercadoPago();
     } else {
       window.addEventListener('load', initializeMercadoPago);
-      return () => window.removeEventListener('load', initializeMercadoPago);
+      return () => {
+        isMounted = false;
+        window.removeEventListener('load', initializeMercadoPago);
+      };
     }
   }, [getDeviceFingerprint]);
 
+  // ========================================
+  // RETORNO DO HOOK
+  // ========================================
+  
   return {
     mp,
     deviceId,
@@ -216,18 +330,25 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
   };
 }
 
+// ========================================
+// HOOKS AUXILIARES
+// ========================================
+
 /**
- * Hook para obter o Device ID do MercadoPago
- * Usado para enviar junto com requisições de pagamento
+ * Hook simplificado para obter apenas o Device ID
+ * 
+ * @returns Device ID ou null
+ * 
+ * @example
+ * ```tsx
+ * const deviceId = useMercadoPagoDeviceId();
+ * 
+ * if (!deviceId) {
+ *   return <p>Carregando sistema de segurança...</p>;
+ * }
+ * ```
  */
 export function useMercadoPagoDeviceId(): string | null {
-  const { deviceId, isReady } = useMercadoPagoSDK();
-  
-  useEffect(() => {
-    if (isReady && deviceId) {
-      logger.info('✅ Device ID pronto para uso');
-    }
-  }, [isReady, deviceId]);
-
+  const { deviceId } = useMercadoPagoSDK();
   return deviceId;
 }
