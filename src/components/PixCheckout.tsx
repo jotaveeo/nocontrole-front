@@ -109,21 +109,11 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
   const createPixPayment = async () => {
     setLoading(true);
     try {
-      // ⚠️ VALIDAÇÃO CRÍTICA: Device ID não pode ser fallback
+      // ⚠️ VALIDAÇÃO CRÍTICA: Device ID obrigatório
       if (!deviceId || deviceId === 'generating') {
         toast({
           title: 'Aguarde',
           description: 'Validando dados de segurança...',
-          variant: 'destructive',
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (deviceId.startsWith('fallback_')) {
-        toast({
-          title: 'Erro de Segurança',
-          description: 'Sistema de segurança não inicializado. Recarregue a página.',
           variant: 'destructive',
         });
         setLoading(false);
@@ -135,11 +125,11 @@ export function PixCheckout({ isOpen, onClose, amount, planName }: PixCheckoutPr
         amount: amount,
         description: `${planName} - NoControle`,
         planType: 'pix',
-        deviceId: deviceId, // ✅ Device ID REAL validado
+        deviceId: deviceId, // ✅ Device ID REAL
       };
 
       console.log('📤 Enviando dados para criar PIX:', paymentData);
-      console.log('✅ Device ID REAL confirmado:', deviceId);
+      console.log('✅ Device ID confirmado:', deviceId);
       console.log('📍 Endpoint:', MERCADOPAGO_CONFIG.pixEndpoint);
 
       // Enviar dados necessários para criar o pagamento PIX

@@ -58,40 +58,7 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Função para gerar Device ID de fallback baseado no navegador
-  const generateFallbackDeviceId = useCallback((): string => {
-    try {
-      const nav = window.navigator;
-      const screen = window.screen;
-      
-      // Coletar informações do navegador
-      const components = [
-        nav.userAgent,
-        nav.language,
-        screen.colorDepth,
-        screen.width + 'x' + screen.height,
-        new Date().getTimezoneOffset(),
-        !!window.sessionStorage,
-        !!window.localStorage,
-      ];
-      
-      // Gerar um hash simples
-      const str = components.join('|');
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
-      }
-      
-      const deviceId = 'fallback_' + Math.abs(hash).toString(36) + '_' + Date.now().toString(36);
-      logger.info('🔧 Device ID de fallback gerado:', deviceId);
-      return deviceId;
-    } catch (err) {
-      logger.error('❌ Erro ao gerar fallback:', err);
-      return 'fallback_' + Date.now().toString(36);
-    }
-  }, []);
+  // ❌ FALLBACK REMOVIDO - Device ID deve ser gerado pelo SDK ou falhar
 
   // Função para obter Device ID do SDK do MercadoPago
   const getDeviceFingerprint = useCallback((): string | null => {
@@ -202,18 +169,22 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
             setDeviceId('generating');
             setTimeout(checkDeviceId, 1000);
           } else {
-            // ❌ ÚLTIMO RECURSO: Gerar fallback (mas alertar que não é ideal)
-            logger.error('❌ Device ID do MercadoPago NÃO foi gerado após 10 segundos');
-            logger.error('⚠️ Isso pode causar REJEIÇÃO de pagamentos!');
-            logger.warn('💡 Possíveis causas:');
-            logger.warn('   - Public Key incorreta');
-            logger.warn('   - Bloqueador de anúncios ativo');
-            logger.warn('   - Problemas de rede');
-            logger.warn('   - SDK não carregou corretamente');
+            // ❌ FALHA TOTAL: Device ID não foi gerado
+            logger.error('❌ FALHA CRÍTICA: Device ID do MercadoPago NÃO foi gerado após 10 segundos');
+            logger.error('⚠️ Pagamentos NÃO PODEM ser processados sem Device ID real');
+            logger.error('💡 Possíveis causas:');
+            logger.error('   - Public Key incorreta ou não configurada');
+            logger.error('   - Bloqueador de anúncios está bloqueando o SDK');
+            logger.error('   - Problemas de rede/firewall');
+            logger.error('   - SDK do MercadoPago não carregou corretamente');
+            logger.error('🔧 AÇÕES:');
+            logger.error('   1. Verifique a Public Key em MERCADOPAGO_CONFIG');
+            logger.error('   2. Desabilite bloqueadores de anúncios');
+            logger.error('   3. Recarregue a página');
+            logger.error('   4. Teste em outro navegador');
             
-            const fallbackId = generateFallbackDeviceId();
-            setDeviceId(fallbackId);
-            setError('Device ID de segurança não foi gerado. Pagamentos podem ser rejeitados.');
+            setDeviceId(null);
+            setError('Sistema de segurança não inicializado. Recarregue a página ou entre em contato com o suporte.');
           }
         };
         
