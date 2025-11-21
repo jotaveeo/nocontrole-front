@@ -321,16 +321,39 @@ export function CreditCardCheckout({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5" />
-            Pagamento com Cartão de Crédito
-          </DialogTitle>
-          <DialogDescription>
-            {planName} - {formatAmount(amount)}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto p-0 gap-0">
+        {/* Header Moderno */}
+        <div className="bg-gradient-to-r from-primary/10 via-purple-500/10 to-primary/10 p-6 border-b">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <CreditCard className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Pagamento Seguro
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                  {planName}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {formatAmount(amount)}
+              </p>
+            </div>
+          </div>
+          
+          {/* Badge PCI Compliant */}
+          <div className="flex items-center gap-2 mt-4 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg px-3 py-2 border border-green-200 dark:border-green-800">
+            <Lock className="w-4 h-4 text-green-600" />
+            <span className="text-xs font-medium text-green-700 dark:text-green-400">
+              Criptografia de ponta a ponta • PCI DSS Level 1
+            </span>
+          </div>
+        </div>
 
         {sdkError ? (
           <div className="flex flex-col items-center justify-center py-12">
@@ -348,120 +371,175 @@ export function CreditCardCheckout({
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Badge PCI Compliance */}
-            <div className="flex items-center justify-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <Lock className="w-5 h-5 text-green-600 dark:text-green-400" />
-              <span className="text-sm font-medium text-green-900 dark:text-green-200">
-                🔒 Formulário Seguro - PCI Compliant
-              </span>
-            </div>
-
-            {/* Formulário */}
-            <form id="mp-card-form" className="space-y-4">
-              {/* Secure Fields - Campos do Cartão */}
-              <div className="space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <Lock className="w-4 h-4" />
-                  Dados do Cartão (Criptografado)
-                </h3>
+          <div className="p-6">
+            <form id="mp-card-form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-6">
+              {/* Seção: Dados do Cartão */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent"></div>
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2">
+                    Dados do Cartão
+                  </span>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent"></div>
+                </div>
 
                 {/* Número do Cartão */}
                 <div>
-                  <Label htmlFor="mp-card-number">Número do Cartão</Label>
-                  <div id="mp-card-number" className="mt-1"></div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                    Número do Cartão
+                  </Label>
+                  <div 
+                    id="mp-card-number" 
+                    className="h-12 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary/50 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all"
+                  ></div>
                 </div>
 
-                {/* Data de Expiração e CVV */}
+                {/* Validade e CVV */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="mp-expiration-date">Validade</Label>
-                    <div id="mp-expiration-date" className="mt-1"></div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                      Validade
+                    </Label>
+                    <div 
+                      id="mp-expiration-date" 
+                      className="h-12 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary/50 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all"
+                    ></div>
                   </div>
                   <div>
-                    <Label htmlFor="mp-security-code">CVV</Label>
-                    <div id="mp-security-code" className="mt-1"></div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                      CVV
+                    </Label>
+                    <div 
+                      id="mp-security-code" 
+                      className="h-12 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary/50 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all"
+                    ></div>
                   </div>
                 </div>
               </div>
 
-              {/* Nome do Titular */}
-              <div>
-                <Label htmlFor="form-checkout__cardholderName">
-                  Nome do Titular
-                </Label>
-                <input
-                  type="text"
-                  id="form-checkout__cardholderName"
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
-                  placeholder="Nome como está no cartão"
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <Label htmlFor="form-checkout__cardholderEmail">E-mail</Label>
-                <input
-                  type="email"
-                  id="form-checkout__cardholderEmail"
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
-                  placeholder="seu@email.com"
-                />
-              </div>
-
-              {/* CPF/CNPJ */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="form-checkout__identificationType">Tipo</Label>
-                  <select
-                    id="form-checkout__identificationType"
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
-                  >
-                    <option value="CPF">CPF</option>
-                    <option value="CNPJ">CNPJ</option>
-                  </select>
+              {/* Seção: Dados Pessoais */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent"></div>
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2">
+                    Seus Dados
+                  </span>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent"></div>
                 </div>
-                <div className="col-span-2">
-                  <Label htmlFor="form-checkout__identificationNumber">Número</Label>
+
+                {/* Nome */}
+                <div>
+                  <Label htmlFor="form-checkout__cardholderName" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                    Nome no Cartão
+                  </Label>
                   <input
                     type="text"
-                    id="form-checkout__identificationNumber"
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
-                    placeholder="000.000.000-00"
+                    id="form-checkout__cardholderName"
+                    className="w-full h-12 px-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 hover:border-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+                    placeholder="Nome como está no cartão"
                   />
+                </div>
+
+                {/* E-mail */}
+                <div>
+                  <Label htmlFor="form-checkout__cardholderEmail" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                    E-mail
+                  </Label>
+                  <input
+                    type="email"
+                    id="form-checkout__cardholderEmail"
+                    className="w-full h-12 px-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 hover:border-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+                    placeholder="seu@email.com"
+                  />
+                </div>
+
+                {/* CPF/CNPJ */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="form-checkout__identificationType" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                      Tipo
+                    </Label>
+                    <select
+                      id="form-checkout__identificationType"
+                      className="w-full h-12 px-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:border-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+                    >
+                      <option value="CPF">CPF</option>
+                      <option value="CNPJ">CNPJ</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="form-checkout__identificationNumber" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                      Documento
+                    </Label>
+                    <input
+                      type="text"
+                      id="form-checkout__identificationNumber"
+                      className="w-full h-12 px-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 hover:border-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+                      placeholder="000.000.000-00"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Banco Emissor */}
-              <div>
-                <Label htmlFor="form-checkout__issuer">Banco Emissor</Label>
-                <select
-                  id="form-checkout__issuer"
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
-                ></select>
+              {/* Seção: Pagamento */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent"></div>
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2">
+                    Opções
+                  </span>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent"></div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Banco */}
+                  <div>
+                    <Label htmlFor="form-checkout__issuer" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                      Banco
+                    </Label>
+                    <select
+                      id="form-checkout__issuer"
+                      className="w-full h-12 px-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:border-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+                    ></select>
+                  </div>
+
+                  {/* Parcelas */}
+                  <div>
+                    <Label htmlFor="form-checkout__installments" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                      Parcelas
+                    </Label>
+                    <select
+                      id="form-checkout__installments"
+                      className="w-full h-12 px-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:border-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+                    ></select>
+                  </div>
+                </div>
               </div>
 
-              {/* Parcelas */}
-              <div>
-                <Label htmlFor="form-checkout__installments">Parcelas</Label>
-                <select
-                  id="form-checkout__installments"
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
-                ></select>
-              </div>
-
-              {/* Informações de Segurança */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              {/* Garantias */}
+              <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/10 dark:via-indigo-900/10 dark:to-purple-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900">
                 <div className="flex gap-3">
-                  <Lock className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                  <div className="space-y-2 text-sm text-blue-900 dark:text-blue-200">
-                    <p className="font-semibold">Segurança Garantida:</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>Seus dados são criptografados de ponta a ponta</li>
-                      <li>Certificado PCI DSS Level 1 (máxima segurança)</li>
-                      <li>Os dados do cartão nunca passam pelo nosso servidor</li>
-                      <li>Processamento seguro pelo Mercado Pago</li>
-                    </ul>
+                  <div className="p-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-sm">
+                    <Lock className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                      Pagamento 100% Seguro
+                    </p>
+                    <div className="grid grid-cols-1 gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                        <span>Criptografia de ponta a ponta</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                        <span>Certificado PCI DSS Level 1</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                        <span>Processado pelo MercadoPago</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -469,22 +547,26 @@ export function CreditCardCheckout({
               {/* Botão de Pagamento */}
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full h-14 text-base font-semibold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
                 size="lg"
                 disabled={!formReady || processing}
               >
                 {processing ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processando Pagamento...
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Processando...
                   </>
                 ) : (
                   <>
-                    <Lock className="mr-2 h-4 w-4" />
-                    Pagar {formatAmount(amount)} com Segurança
+                    <Lock className="mr-2 h-5 w-5" />
+                    Pagar {formatAmount(amount)}
                   </>
                 )}
               </Button>
+
+              <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+                Transação protegida • Cancele quando quiser
+              </p>
             </form>
           </div>
         )}
