@@ -93,32 +93,40 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
     }
   }, []);
 
-  // Função para obter Device Fingerprint dos cookies
+  // Função para obter Device ID do SDK do MercadoPago
   const getDeviceFingerprint = useCallback((): string | null => {
     try {
-      // Método 1: Tentar pegar de todos os cookies do MercadoPago
-      const cookies = document.cookie.split(';');
-      logger.debug('🍪 Cookies disponíveis:', cookies.length);
+      // ✅ MÉTODO CORRETO: Buscar no window.MP_DEVICE_SESSION_ID
+      // O SDK do MercadoPago armazena o Device ID nessa variável global
+      const deviceId = (window as any).MP_DEVICE_SESSION_ID;
       
-      // Tentar diferentes nomes de cookie
-      const possibleCookieNames = ['_mp_device_id', '_device_id', 'mp_device_id', '_mpcid'];
+      if (deviceId) {
+        // Validar se não é um fallback fake
+        if (deviceId.startsWith('fallback_')) {
+          logger.warn('⚠️ Device ID é fallback (não foi gerado pelo SDK):', deviceId);
+          return null;
+        }
+        
+        logger.info('✅ Device ID real encontrado:', deviceId);
+        return deviceId;
+      }
+      
+      // Método alternativo: Tentar pegar dos cookies como fallback
+      const cookies = document.cookie.split(';');
+      const possibleCookieNames = ['_mp_device_id', 'mp_device_id', '_mpcid'];
       
       for (const cookieName of possibleCookieNames) {
         const deviceCookie = cookies.find(c => c.trim().startsWith(cookieName + '='));
         if (deviceCookie) {
           const deviceValue = deviceCookie.split('=')[1];
-          logger.info(`✅ Device ID encontrado no cookie ${cookieName}:`, deviceValue);
-          return deviceValue;
+          if (!deviceValue.startsWith('fallback_')) {
+            logger.info(`✅ Device ID encontrado no cookie ${cookieName}:`, deviceValue);
+            return deviceValue;
+          }
         }
       }
       
-      // Método 2: Verificar se há algum cookie do MercadoPago
-      const mpCookies = cookies.filter(c => c.toLowerCase().includes('mp') || c.toLowerCase().includes('mercado'));
-      if (mpCookies.length > 0) {
-        logger.debug('🔍 Cookies do MercadoPago encontrados:', mpCookies);
-      }
-      
-      logger.warn('⚠️ Device ID ainda não gerado nos cookies');
+      logger.debug('⏳ Device ID ainda não gerado pelo SDK');
       return null;
     } catch (err) {
       logger.error('❌ Erro ao obter device fingerprint:', err);
@@ -169,31 +177,48 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
         
         setIsReady(true);
 
-        // Aguardar Device ID ser gerado (até 3 tentativas)
+        // ⚠️ CRÍTICO: Aguardar Device ID ser gerado pelo SDK
+        // O SDK precisa de tempo para gerar o Device ID real
+        logger.info('⏳ Aguardando geração do Device ID pelo SDK...');
+        
         let attempts = 0;
-        const maxAttempts = 6;
-        const checkDeviceId = () => {
+        const maxAttempts = 10; // Aumentado para 10 tentativas (10 segundos total)
+        
+        const checkDeviceId = async () => {
           attempts++;
+          
+          // Verificar window.MP_DEVICE_SESSION_ID
           const fingerprint = getDeviceFingerprint();
           
-          if (fingerprint) {
+          if (fingerprint && !fingerprint.startsWith('fallback_')) {
             setDeviceId(fingerprint);
-            logger.info('✅ Device ID capturado:', fingerprint);
-          } else if (attempts < maxAttempts) {
-            logger.debug(`⏳ Device ID sendo gerado... (tentativa ${attempts}/${maxAttempts})`);
+            logger.info('✅ Device ID REAL capturado pelo SDK:', fingerprint);
+            logger.info('🛡️ Pagamentos agora terão maior taxa de aprovação');
+            return;
+          }
+          
+          if (attempts < maxAttempts) {
+            logger.debug(`⏳ Tentativa ${attempts}/${maxAttempts} - Aguardando SDK gerar Device ID...`);
             setDeviceId('generating');
             setTimeout(checkDeviceId, 1000);
           } else {
-            // Após todas as tentativas, gerar um Device ID de fallback
-            logger.warn('⚠️ Device ID do MercadoPago não foi gerado após 6 tentativas');
-            logger.info('🔧 Gerando Device ID de fallback baseado no navegador');
+            // ❌ ÚLTIMO RECURSO: Gerar fallback (mas alertar que não é ideal)
+            logger.error('❌ Device ID do MercadoPago NÃO foi gerado após 10 segundos');
+            logger.error('⚠️ Isso pode causar REJEIÇÃO de pagamentos!');
+            logger.warn('💡 Possíveis causas:');
+            logger.warn('   - Public Key incorreta');
+            logger.warn('   - Bloqueador de anúncios ativo');
+            logger.warn('   - Problemas de rede');
+            logger.warn('   - SDK não carregou corretamente');
+            
             const fallbackId = generateFallbackDeviceId();
             setDeviceId(fallbackId);
+            setError('Device ID de segurança não foi gerado. Pagamentos podem ser rejeitados.');
           }
         };
         
-        // Primeira tentativa após 1 segundo
-        setTimeout(checkDeviceId, 1000);
+        // Aguardar 2 segundos antes da primeira tentativa (SDK precisa de tempo)
+        setTimeout(checkDeviceId, 2000);
 
       } catch (err) {
         logger.error('❌ Erro ao inicializar MercadoPago SDK:', err);

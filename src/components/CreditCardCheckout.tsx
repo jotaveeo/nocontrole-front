@@ -256,7 +256,7 @@ export function CreditCardCheckout({
       const formData = cardFormRef.current.getCardFormData();
       logger.debug('📋 Dados do formulário:', formData);
 
-      // ⚠️ VALIDAÇÃO CRÍTICA: Device ID é OBRIGATÓRIO
+      // ⚠️ VALIDAÇÃO CRÍTICA: Device ID é OBRIGATÓRIO e NÃO pode ser fallback
       if (!deviceId || deviceId === 'generating') {
         logger.error('❌ Device ID não disponível ou ainda sendo gerado');
         toast({
@@ -268,7 +268,20 @@ export function CreditCardCheckout({
         return;
       }
 
-      logger.info('✅ Device ID confirmado:', deviceId);
+      // ❌ BLOQUEIO: Não aceitar Device ID fallback
+      if (deviceId.startsWith('fallback_')) {
+        logger.error('❌ Device ID é FALLBACK - Pagamento será REJEITADO pelo MercadoPago');
+        logger.error('💡 Recarregue a página e aguarde o Device ID real ser gerado');
+        toast({
+          title: 'Erro de Segurança',
+          description: 'Sistema de segurança não foi inicializado. Por favor, recarregue a página.',
+          variant: 'destructive',
+        });
+        setProcessing(false);
+        return;
+      }
+
+      logger.info('✅ Device ID REAL confirmado:', deviceId);
       logger.debug('📦 Payload completo:', {
         hasToken: !!token,
         deviceId,
@@ -401,6 +414,29 @@ export function CreditCardCheckout({
           </div>
         ) : (
           <div className="p-6">
+            {/* ⚠️ ALERTA: Device ID Fallback */}
+            {deviceId && deviceId.startsWith('fallback_') && (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-red-900 dark:text-red-100 mb-1">
+                      ⚠️ Sistema de Segurança Não Inicializado
+                    </h3>
+                    <p className="text-sm text-red-800 dark:text-red-200 mb-2">
+                      O Device ID de segurança não foi gerado corretamente. Pagamentos com este status serão <strong>rejeitados automaticamente</strong> pelo MercadoPago.
+                    </p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="text-sm font-medium text-red-700 dark:text-red-300 underline hover:text-red-900 dark:hover:text-red-100"
+                    >
+                      🔄 Recarregar página e tentar novamente
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <form id="mp-card-form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-6">
               {/* Seção: Dados do Cartão */}
               <div className="space-y-4">
@@ -578,7 +614,13 @@ export function CreditCardCheckout({
                 type="submit"
                 className="w-full h-14 text-base font-semibold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
                 size="lg"
-                disabled={!formReady || processing || !deviceId || deviceId === 'generating'}
+                disabled={
+                  !formReady || 
+                  processing || 
+                  !deviceId || 
+                  deviceId === 'generating' || 
+                  deviceId.startsWith('fallback_') // ← BLOQUEIO: Não permitir fallback
+                }
               >
                 {processing ? (
                   <>
@@ -589,6 +631,11 @@ export function CreditCardCheckout({
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Validando Segurança...
+                  </>
+                ) : deviceId.startsWith('fallback_') ? (
+                  <>
+                    <AlertCircle className="mr-2 h-5 w-5" />
+                    Recarregue a Página
                   </>
                 ) : (
                   <>
