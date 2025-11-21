@@ -49,10 +49,15 @@ declare global {
  */
 interface MercadoPagoInstance {
   cardForm: (config: CardFormConfig) => CardFormInstance;
+  bricks: () => BricksBuilder;
   getIdentificationTypes: () => Promise<IdentificationType[]>;
   getPaymentMethods: (options: { bin: string }) => Promise<PaymentMethod>;
   getInstallments: (options: InstallmentOptions) => Promise<Installment[]>;
   getIssuers: (options: { paymentMethodId: string; bin: string }) => Promise<Issuer[]>;
+}
+
+interface BricksBuilder {
+  create: (type: string, containerId: string, settings: any) => Promise<any>;
 }
 
 interface CardFormConfig {

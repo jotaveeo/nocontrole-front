@@ -101,9 +101,6 @@ export function CreditCardCheckout({
           fontFamily: 'Inter, -apple-system, system-ui, sans-serif',
           fontWeight: '400',
           placeholderColor: 'rgb(156, 163, 175)', // gray-400
-          '::placeholder': {
-            color: 'rgb(156, 163, 175)',
-          },
         };
 
         // ✅ CONFIGURAÇÃO DO CARD FORM COM SECURE FIELDS
@@ -115,7 +112,7 @@ export function CreditCardCheckout({
             cardNumber: {
               id: 'mp-card-number',
               placeholder: 'Número do cartão',
-              style: style, // Aplica estilo CSS
+              style: style,
             },
             expirationDate: {
               id: 'mp-expiration-date',
