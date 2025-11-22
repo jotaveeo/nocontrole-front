@@ -34,6 +34,26 @@ import { Logger } from '@/utils/logger';
 const logger = new Logger('MercadoPago SDK');
 
 // ========================================
+// SINGLETON PARA EVITAR INICIALIZAÇÃO DUPLICADA
+// ========================================
+
+let sdkInstance: {
+  mp: any | null;
+  deviceId: string | null;
+  isReady: boolean;
+  error: string | null;
+  isInitializing: boolean;
+  listeners: Set<() => void>;
+} = {
+  mp: null,
+  deviceId: null,
+  isReady: false,
+  error: null,
+  isInitializing: false,
+  listeners: new Set(),
+};
+
+// ========================================
 // TIPOS TYPESCRIPT
 // ========================================
 
@@ -41,6 +61,7 @@ declare global {
   interface Window {
     MercadoPago: any;
     MP_DEVICE_SESSION_ID?: string;
+    __MP_SDK_INITIALIZED__?: boolean;
   }
 }
 
@@ -181,10 +202,10 @@ interface UseMercadoPagoSDKReturn {
  * @returns {UseMercadoPagoSDKReturn} Objeto com mp, deviceId, isReady, error, publicKey
  */
 export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
-  const [mp, setMp] = useState<MercadoPagoInstance | null>(null);
-  const [deviceId, setDeviceId] = useState<string | null>(null);
-  const [isReady, setIsReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [mp, setMp] = useState<MercadoPagoInstance | null>(sdkInstance.mp);
+  const [deviceId, setDeviceId] = useState<string | null>(sdkInstance.deviceId);
+  const [isReady, setIsReady] = useState(sdkInstance.isReady);
+  const [error, setError] = useState<string | null>(sdkInstance.error);
 
   // ========================================
   // FUNÇÃO: Buscar Device ID
@@ -220,7 +241,48 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
         }
       }
       
-      return null;
+      // Método 3: FALLBACK - Gerar Device ID baseado em browser fingerprint
+      // Usado quando advancedFraudPrevention não funciona
+      const generateBrowserFingerprint = (): string => {
+        const nav = navigator;
+        const screen = window.screen;
+        
+        const data = [
+          nav.userAgent,
+          nav.language,
+          screen.colorDepth,
+          screen.width + 'x' + screen.height,
+          new Date().getTimezoneOffset(),
+          !!window.sessionStorage,
+          !!window.localStorage,
+        ].join('|');
+        
+        // Hash simples (substituir por crypto se disponível)
+        let hash = 0;
+        for (let i = 0; i < data.length; i++) {
+          const char = data.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & hash;
+        }
+        
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 15);
+        
+        return `fp_${Math.abs(hash).toString(36)}_${timestamp.toString(36)}_${random}`;
+      };
+      
+      logger.warn('⚠️ SDK não gerou Device ID, usando fingerprint do navegador');
+      const fingerprint = generateBrowserFingerprint();
+      
+      // Salvar em localStorage para consistência
+      try {
+        localStorage.setItem('mp_browser_fingerprint', fingerprint);
+      } catch (e) {
+        logger.warn('Não foi possível salvar fingerprint no localStorage');
+      }
+      
+      return fingerprint;
+      
     } catch (err) {
       logger.error('❌ Erro ao buscar Device ID:', err);
       return null;
@@ -228,12 +290,38 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
   }, []);
 
   // ========================================
-  // EFEITO: Inicializar SDK
+  // EFEITO: Sincronizar com Singleton
   // ========================================
   
   useEffect(() => {
-    let isMounted = true;
-    
+    const updateState = () => {
+      setMp(sdkInstance.mp);
+      setDeviceId(sdkInstance.deviceId);
+      setIsReady(sdkInstance.isReady);
+      setError(sdkInstance.error);
+    };
+
+    sdkInstance.listeners.add(updateState);
+
+    return () => {
+      sdkInstance.listeners.delete(updateState);
+    };
+  }, []);
+
+  // ========================================
+  // EFEITO: Inicializar SDK (apenas uma vez)
+  // ========================================
+  
+  useEffect(() => {
+    // Se já está inicializado ou inicializando, não fazer nada
+    if (sdkInstance.isReady || sdkInstance.isInitializing || window.__MP_SDK_INITIALIZED__) {
+      return;
+    }
+
+    // Marcar como inicializando
+    sdkInstance.isInitializing = true;
+    window.__MP_SDK_INITIALIZED__ = true;
+
     const initializeMercadoPago = async () => {
       try {
         // Validar Public Key
@@ -241,21 +329,26 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
         if (!publicKey || publicKey.includes('YOUR-PUBLIC-KEY')) {
           const errorMsg = 'Public Key não configurada. Configure VITE_MERCADOPAGO_PUBLIC_KEY no .env';
           logger.error('❌', errorMsg);
-          setError(errorMsg);
+          sdkInstance.error = errorMsg;
+          sdkInstance.listeners.forEach(fn => fn());
           return;
         }
 
-        logger.info('🚀 Inicializando MercadoPago SDK V2');
+        logger.info('🚀 Inicializando MercadoPago SDK V2 (SINGLETON)');
         logger.debug('🔑 Public Key:', publicKey.substring(0, 20) + '...');
 
-        // Carregar SDK
-        await loadMercadoPago();
-        
-        if (!window.MercadoPago) {
-          throw new Error('SDK não carregou corretamente');
+        // Verificar se já existe no window
+        if (window.MercadoPago) {
+          logger.warn('⚠️ SDK já carregado no window, reutilizando instância');
+        } else {
+          // Carregar SDK
+          await loadMercadoPago();
+          
+          if (!window.MercadoPago) {
+            throw new Error('SDK não carregou corretamente');
+          }
+          logger.info('✅ SDK carregado');
         }
-
-        logger.info('✅ SDK carregado');
 
         // Inicializar SDK com advancedFraudPrevention
         const mercadopago = new window.MercadoPago(publicKey, {
@@ -263,50 +356,108 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
           advancedFraudPrevention: true, // Gera Device ID automaticamente
         });
 
-        if (!isMounted) return;
-        
-        setMp(mercadopago);
-        setIsReady(true);
+        sdkInstance.mp = mercadopago;
+        sdkInstance.isReady = true;
+        sdkInstance.isInitializing = false;
+        sdkInstance.listeners.forEach(fn => fn());
         
         logger.info('✅ SDK inicializado (advancedFraudPrevention: true)');
         logger.info('⏳ Aguardando Device ID...');
+        
+        // 🔍 DEBUG: Verificar se Device ID já existe
+        logger.info('🔍 DEBUG: Verificando window.MP_DEVICE_SESSION_ID:', window.MP_DEVICE_SESSION_ID);
+        logger.info('🔍 DEBUG: Verificando cookies:', document.cookie);
+        logger.info('🔍 DEBUG: Public Key:', publicKey.substring(0, 30) + '...');
 
-        // Polling para Device ID (10 tentativas = 12 segundos)
+        // MÉTODO ALTERNATIVO: Injetar script de Device Session (mais confiável)
+        const injectDeviceSessionScript = () => {
+          // Verificar se já existe
+          if (document.querySelector('script[src*="device-tracking"]')) {
+            logger.info('🔍 Script de Device Session já injetado');
+            return;
+          }
+
+          logger.info('🔄 Injetando script de Device Session do MercadoPago');
+          
+          const script = document.createElement('script');
+          script.src = 'https://www.mercadopago.com/v2/security.js';
+          script.setAttribute('view', 'checkout');
+          script.async = true;
+          
+          script.onload = () => {
+            logger.info('✅ Script de Device Session carregado');
+            // Tentar obter Device ID após carregamento
+            setTimeout(() => {
+              const deviceId = window.MP_DEVICE_SESSION_ID || getDeviceFingerprint();
+              if (deviceId && deviceId !== 'generating') {
+                sdkInstance.deviceId = deviceId;
+                sdkInstance.listeners.forEach(fn => fn());
+                logger.info('✅ Device ID obtido após script:', deviceId);
+              }
+            }, 1000);
+          };
+          
+          script.onerror = () => {
+            logger.error('❌ Erro ao carregar script de Device Session');
+          };
+          
+          document.head.appendChild(script);
+        };
+
+        // Injetar script de Device Session
+        injectDeviceSessionScript();
+
+        // Polling para Device ID (5 tentativas = 7 segundos)
+        // Se SDK não gerar, usaremos browser fingerprint
         let attempts = 0;
-        const maxAttempts = 10;
+        const maxAttempts = 5;
         
         const pollDeviceId = () => {
-          if (!isMounted) return;
-          
           attempts++;
+          
+          // 🔍 DEBUG: Log detalhado em cada tentativa
+          logger.info(`🔍 DEBUG: Tentativa ${attempts}/${maxAttempts}`);
+          logger.info('🔍 DEBUG: window.MP_DEVICE_SESSION_ID:', window.MP_DEVICE_SESSION_ID);
+          
           const id = getDeviceFingerprint();
           
           if (id) {
-            setDeviceId(id);
+            sdkInstance.deviceId = id;
+            sdkInstance.listeners.forEach(fn => fn());
             logger.info('✅ Device ID capturado:', id);
             return;
           }
           
           if (attempts < maxAttempts) {
-            setDeviceId('generating');
+            sdkInstance.deviceId = 'generating';
+            sdkInstance.listeners.forEach(fn => fn());
             setTimeout(pollDeviceId, 1000);
           } else {
-            setDeviceId(null);
-            const errorMsg = 'Device ID não foi gerado. Recarregue a página.';
-            setError(errorMsg);
-            logger.error('❌ FALHA:', errorMsg);
-            logger.error('💡 Causas possíveis: Public Key inválida, bloqueador de anúncios, problemas de rede');
+            // Após 5 tentativas sem sucesso, usar browser fingerprint
+            const fingerprintId = getDeviceFingerprint();
+            
+            if (fingerprintId) {
+              sdkInstance.deviceId = fingerprintId;
+              sdkInstance.listeners.forEach(fn => fn());
+              logger.info('✅ Device ID gerado via browser fingerprint:', fingerprintId);
+            } else {
+              sdkInstance.deviceId = null;
+              const errorMsg = 'Não foi possível gerar Device ID.';
+              sdkInstance.error = errorMsg;
+              sdkInstance.listeners.forEach(fn => fn());
+              logger.error('❌ FALHA:', errorMsg);
+            }
           }
         };
         
         setTimeout(pollDeviceId, 2000);
 
       } catch (err) {
-        if (!isMounted) return;
-        
         const errorMsg = err instanceof Error ? err.message : 'Erro ao inicializar SDK';
         logger.error('❌ Erro:', errorMsg);
-        setError(errorMsg);
+        sdkInstance.error = errorMsg;
+        sdkInstance.isInitializing = false;
+        sdkInstance.listeners.forEach(fn => fn());
       }
     };
 
@@ -315,7 +466,6 @@ export function useMercadoPagoSDK(): UseMercadoPagoSDKReturn {
     } else {
       window.addEventListener('load', initializeMercadoPago);
       return () => {
-        isMounted = false;
         window.removeEventListener('load', initializeMercadoPago);
       };
     }
